@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           String   @default("FARMER") // ADMIN or FARMER
+  phone          String?
+  wilaya         String?
+  areaHectares   Float?
+  productionType String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  farm           Farm?
+}
+
+model Farm {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  name        String
+  areaHectares Float
+  locationWilaya String
+  contractRef String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seasons     Season[]
+  inventories Inventory[]
+  reports     Report[]
+}
+
+model Season {
+  id         String   @id @default(cuid())
+  farmId     String
+  seasonType String   // autumn or spring
+  year       Int
+  startDate  DateTime
+  endDate    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  inventories Inventory[]
+  reports     Report[]
+}
+
+model Category {
+  id        String @id @default(cuid())
+  type      String // income or expense
+  nameAr    String
+  icon      String
+  color     String
+  sortOrder Int
+  transactions Transaction[]
+}
+
+model Transaction {
+  id         String   @id @default(cuid())
+  seasonId   String
+  type       String   // income or expense
+  categoryId String?
+  amount     Float
+  txnDate    DateTime
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  season     Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  category   Category? @relation(fields: [categoryId], references: [id])
+}
+
+model Inventory {
+  id         String   @id @default(cuid())
+  farmId     String
+  seasonId   String
+  itemType   String   // input, crop, animal_product
+  itemName   String
+  unit       String
+  qtyIn      Float    @default(0)
+  qtyOut     Float    @default(0)
+  qtyBalance Float    @default(0)
+  unitCost   Float    @default(0)
+  alertThreshold Float @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  season     Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  farmId      String
+  seasonId    String
+  reportType  String   // seasonal_account, profitability, compliance, financial_certificate
+  generatedAt DateTime @default(now())
+  data        String   // JSON string with report data
+  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  season      Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+}
