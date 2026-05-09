@@ -17,7 +17,9 @@ const WILAYAS = [
   'الجلفة', 'جيجل', 'سطيف', 'سعيدة', 'سكيكدة', 'سيدي بلعباس', 'عنابة', 'قالمة',
   'قسنطينة', 'المدية', 'مستغانم', 'المسيلة', 'معسكر', 'ورقلة', 'وهران', 'البيض',
   'إليزي', 'برج بوعريريج', 'بومرداس', 'الطارف', 'تندوف', 'تيسمسيلت', 'الوادي', 'خنشلة',
-  'سوق أهراس', 'تيبازة', 'ميلة', 'عين الدفلى', 'النعامة', 'عين تموشنت', 'غرداية', 'غليزان'
+  'سوق أهراس', 'تيبازة', 'ميلة', 'عين الدفلى', 'النعامة', 'عين تموشنت', 'غرداية', 'غليزان',
+  'تيميمون', 'برج باجي مختار', 'أولاد جلال', 'بني عباس', 'عين صالح', 'عين قزام',
+  'تقرت', 'جانت', 'المغير', 'المنيعة'
 ]
 
 export function AuthPage() {
@@ -27,7 +29,7 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'FARMER',
-    phone: '', wilaya: '', areaHectares: '', productionType: '',
+    phone: '', wilaya: '', areaHectares: '', productionType: '', farmName: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,48 +150,12 @@ export function AuthPage() {
                       </div>
                     </div>
 
-                    {/* Role */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">نوع الحساب</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, role: 'FARMER' })}
-                          className={`p-3 rounded-xl border-2 transition-all duration-300 flex flex-col items-center gap-2 ${
-                            form.role === 'FARMER'
-                              ? 'border-nature-green bg-green-50 dark:bg-green-900/20 shadow-lg shadow-green-500/10'
-                              : 'border-muted hover:border-nature-green/30'
-                          }`}
-                        >
-                          <Wheat className={`size-6 ${form.role === 'FARMER' ? 'text-nature-green' : 'text-muted-foreground'}`} />
-                          <span className={`text-xs font-bold ${form.role === 'FARMER' ? 'text-nature-green-dark dark:text-nature-green' : 'text-muted-foreground'}`}>
-                            فلاح
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, role: 'ADMIN' })}
-                          className={`p-3 rounded-xl border-2 transition-all duration-300 flex flex-col items-center gap-2 ${
-                            form.role === 'ADMIN'
-                              ? 'border-nature-purple bg-purple-50 dark:bg-purple-900/20 shadow-lg shadow-purple-500/10'
-                              : 'border-muted hover:border-nature-purple/30'
-                          }`}
-                        >
-                          <Shield className={`size-6 ${form.role === 'ADMIN' ? 'text-nature-purple' : 'text-muted-foreground'}`} />
-                          <span className={`text-xs font-bold ${form.role === 'ADMIN' ? 'text-nature-purple' : 'text-muted-foreground'}`}>
-                            مدير
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
                     {/* Farmer-specific fields */}
-                    {form.role === 'FARMER' && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="space-y-4"
-                      >
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="space-y-4"
+                    >
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">رقم الهاتف</Label>
                           <div className="relative">
@@ -221,6 +187,18 @@ export function AuthPage() {
                           </div>
                         </div>
 
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">اسم المزرعة</Label>
+                          <div className="relative">
+                            <Wheat className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                            <Input
+                              value={form.farmName}
+                              onChange={e => setForm({ ...form, farmName: e.target.value })}
+                              placeholder="مزرعة النور"
+                              className="pr-10 h-11 bg-white/50 dark:bg-black/20 border-nature-green/20"
+                            />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
                             <Label className="text-sm font-medium">المساحة (هكتار)</Label>
@@ -247,7 +225,6 @@ export function AuthPage() {
                           </div>
                         </div>
                       </motion.div>
-                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

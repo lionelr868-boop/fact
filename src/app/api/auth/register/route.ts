@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate role
-    const userRole = role === 'ADMIN' ? 'ADMIN' : 'FARMER'
+    // Only FARMER role is allowed for registration
+    const userRole = 'FARMER'
 
     // Check if email already exists
     const existingUser = await db.user.findUnique({ where: { email } })
@@ -45,18 +45,16 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // If FARMER role, create farm
-    let farm = null
-    if (userRole === 'FARMER') {
-      farm = await db.farm.create({
-        data: {
-          userId: user.id,
-          name: `مزرعة ${name}`,
-          areaHectares: areaHectares ? parseFloat(areaHectares) : 0,
-          locationWilaya: wilaya || 'غير محدد',
-        },
-      })
-    }
+    // Create farm for the farmer
+    const farmName = body.farmName || `مزرعة ${name}`
+    const farm = await db.farm.create({
+      data: {
+        userId: user.id,
+        name: farmName,
+        areaHectares: areaHectares ? parseFloat(areaHectares) : 0,
+        locationWilaya: wilaya || 'غير محدد',
+      },
+    })
 
     // Generate token
     const token = generateToken(user.id)

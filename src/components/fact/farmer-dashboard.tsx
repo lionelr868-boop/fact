@@ -18,7 +18,7 @@ import {
   Plus, TrendingUp, TrendingDown, AlertTriangle, Wheat,
   Trash2, Eye, Droplets, Wrench, Truck, Users, FlaskConical, Landmark, Milk,
   Carrot, BarChart3, Shield, Award, CheckCircle2, XCircle, Printer, MapPin,
-  Calendar, DollarSign, Percent, Leaf, BookOpen, Stamp
+  Calendar, DollarSign, Percent, Leaf, BookOpen, Stamp, Download
 } from 'lucide-react'
 import { SeasonalBarChart, ProfitabilityGauge, CategoryPieChart, InventoryBarChart, MonthlyAreaChart } from './charts'
 import { toast } from 'sonner'
@@ -162,23 +162,43 @@ export function FarmerDashboard() {
   const [txForm, setTxForm] = useState({ type: 'income', categoryId: '', amount: '', note: '', txnDate: new Date().toISOString().split('T')[0] })
 
   const handleAddTransaction = async () => {
+    if (!txForm.amount || parseFloat(txForm.amount) <= 0) {
+      toast.error('يرجى إدخال مبلغ صحيح')
+      return
+    }
+    if (!txForm.categoryId) {
+      toast.error('يرجى اختيار البند')
+      return
+    }
     try {
+      const payload = {
+        type: txForm.type,
+        categoryId: txForm.categoryId || null,
+        amount: parseFloat(txForm.amount),
+        txnDate: txForm.txnDate,
+        note: txForm.note || null,
+        seasonId: selectedSeason,
+      }
       const res = await fetch('/api/transactions', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...txForm, seasonId: selectedSeason, amount: parseFloat(txForm.amount) }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (data.success) {
         toast.success('تم إضافة العملية بنجاح')
         setTxDialog(false)
         setTxForm({ type: 'income', categoryId: '', amount: '', note: '', txnDate: new Date().toISOString().split('T')[0] })
+        // Refresh transactions list directly
+        const txRes = await fetch(`/api/transactions?seasonId=${selectedSeason}`, { headers })
+        const txData = await txRes.json()
+        if (txData.success) setTransactions(txData.data.transactions)
         refreshData()
       } else {
-        toast.error(data.error)
+        toast.error(data.error || 'حدث خطأ أثناء الإضافة')
       }
     } catch {
-      toast.error('حدث خطأ')
+      toast.error('حدث خطأ في الاتصال')
     }
   }
 
@@ -187,23 +207,46 @@ export function FarmerDashboard() {
   const [invForm, setInvForm] = useState({ itemType: 'input', itemName: '', unit: 'كيلو', qtyIn: '', qtyOut: '0', unitCost: '', alertThreshold: '' })
 
   const handleAddInventory = async () => {
+    if (!invForm.itemName) {
+      toast.error('يرجى إدخال اسم الصنف')
+      return
+    }
+    if (!invForm.qtyIn || parseFloat(invForm.qtyIn) <= 0) {
+      toast.error('يرجى إدخال كمية صحيحة')
+      return
+    }
     try {
+      const payload = {
+        farmId: farm.id,
+        seasonId: selectedSeason,
+        itemType: invForm.itemType,
+        itemName: invForm.itemName,
+        unit: invForm.unit || 'كيلو',
+        qtyIn: parseFloat(invForm.qtyIn) || 0,
+        qtyOut: parseFloat(invForm.qtyOut) || 0,
+        unitCost: parseFloat(invForm.unitCost) || 0,
+        alertThreshold: parseFloat(invForm.alertThreshold) || 0,
+      }
       const res = await fetch('/api/inventory', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...invForm, farmId: farm.id, seasonId: selectedSeason }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (data.success) {
         toast.success('تم إضافة المخزون بنجاح')
         setInvDialog(false)
         setInvForm({ itemType: 'input', itemName: '', unit: 'كيلو', qtyIn: '', qtyOut: '0', unitCost: '', alertThreshold: '' })
+        // Refresh inventory directly
+        const invRes = await fetch(`/api/inventory?farmId=${farm.id}&seasonId=${selectedSeason}`, { headers })
+        const invData = await invRes.json()
+        if (invData.success) setInventory(invData.data)
         refreshData()
       } else {
-        toast.error(data.error)
+        toast.error(data.error || 'حدث خطأ أثناء الإضافة')
       }
     } catch {
-      toast.error('حدث خطأ')
+      toast.error('حدث خطأ في الاتصال')
     }
   }
 
@@ -262,16 +305,37 @@ export function FarmerDashboard() {
     }
   }
 
+  const handleExportPDF = async () => {
+    if (!selectedReportData || !selectedReport) return
+    try {
+      toast.loading('جاري إنشاء ملف PDF...')
+      const { generateReportPDF } = await import('@/lib/pdf-generator')
+      const doc = generateReportPDF(selectedReport.reportType, selectedReportData)
+      const seasonLabel = selectedReportData.season ? `${selectedReportData.season.type || ''}_${selectedReportData.season.year || ''}` : 'report'
+      doc.save(`FACT_${selectedReport.reportType}_${seasonLabel}.pdf`)
+      toast.dismiss()
+      toast.success('تم تحميل التقرير بنجاح')
+    } catch (err) {
+      toast.dismiss()
+      console.error('PDF export error:', err)
+      toast.error('حدث خطأ أثناء إنشاء ملف PDF')
+    }
+  }
+
   const handleDeleteTransaction = async (id: string) => {
     try {
       const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE', headers })
       const data = await res.json()
       if (data.success) {
         toast.success('تم حذف العملية')
+        // Remove from local state immediately
+        setTransactions(prev => prev.filter(t => t.id !== id))
         refreshData()
+      } else {
+        toast.error(data.error || 'فشل حذف العملية')
       }
     } catch {
-      toast.error('حدث خطأ')
+      toast.error('حدث خطأ في الاتصال')
     }
   }
 
@@ -902,9 +966,28 @@ export function FarmerDashboard() {
                                 <p className="text-xs text-muted-foreground">{new Date(r.generatedAt).toLocaleDateString('fr-FR')}</p>
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm" onClick={() => handleViewReport(r)} className="hover:bg-nature-green/10 hover:text-nature-green">
-                              <Eye className="size-4" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleViewReport(r)} className="hover:bg-nature-green/10 hover:text-nature-green">
+                                <Eye className="size-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={async () => {
+                                try {
+                                  const parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data
+                                  toast.loading('جاري إنشاء ملف PDF...')
+                                  const { generateReportPDF } = await import('@/lib/pdf-generator')
+                                  const doc = generateReportPDF(r.reportType, parsed)
+                                  const sLabel = parsed.season ? `${parsed.season.type || ''}_${parsed.season.year || ''}` : 'report'
+                                  doc.save(`FACT_${r.reportType}_${sLabel}.pdf`)
+                                  toast.dismiss()
+                                  toast.success('تم تحميل التقرير بنجاح')
+                                } catch (err) {
+                                  toast.dismiss()
+                                  toast.error('حدث خطأ أثناء إنشاء ملف PDF')
+                                }
+                              }} className="hover:bg-nature-golden/10 hover:text-nature-golden">
+                                <Download className="size-4" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -946,15 +1029,26 @@ export function FarmerDashboard() {
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-white hover:bg-white/20"
-                      onClick={() => window.print()}
-                    >
-                      <Printer className="size-4 ml-1" />
-                      طباعة
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-white/20"
+                        onClick={handleExportPDF}
+                      >
+                        <Download className="size-4 ml-1" />
+                        PDF
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-white/20"
+                        onClick={() => window.print()}
+                      >
+                        <Printer className="size-4 ml-1" />
+                        طباعة
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -1025,6 +1119,42 @@ export function FarmerDashboard() {
                           </div>
                           <Progress value={Math.min(100, Math.max(0, rData.summary?.profitabilityRate || 0))} className="h-3" />
                         </div>
+
+                        {/* KPI Calculation Methods */}
+                        {rData.kpis && rData.kpis.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                              <Shield className="size-4 text-nature-purple" />
+                              المؤشرات وطريقة الحساب
+                            </h3>
+                            <div className="rounded-xl border overflow-hidden">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-purple-50 dark:bg-purple-900/20">
+                                    <TableHead className="text-right font-bold text-xs">المؤشر</TableHead>
+                                    <TableHead className="text-right font-bold text-xs">القيمة</TableHead>
+                                    <TableHead className="text-right font-bold text-xs">المعادلة</TableHead>
+                                    <TableHead className="text-right font-bold text-xs">الحساب</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {rData.kpis.map((kpi: any, idx: number) => (
+                                    <TableRow key={idx} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
+                                      <TableCell className="font-medium text-xs">{kpi.name}</TableCell>
+                                      <TableCell className="text-xs font-bold">
+                                        {kpi.id === 'kpi07' ? `${kpi.value} بنود` : 
+                                         kpi.id === 'kpi03' || kpi.id === 'kpi05' ? `${new Intl.NumberFormat('en-US').format(Math.round(kpi.value))} دج` :
+                                         `${kpi.value?.toFixed(1)}%`}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">{kpi.formula}</TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">{kpi.calculation}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Income Details Table */}
                         <div>
