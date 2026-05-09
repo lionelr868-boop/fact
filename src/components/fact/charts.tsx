@@ -8,18 +8,19 @@ import {
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 
 const COLORS = {
-  green: '#4ade80',
-  greenDark: '#2E7D32',
-  golden: '#d4a017',
+  green: '#388E3C',
+  greenDark: '#1B5E20',
+  golden: '#b8860b',
   goldenLight: '#fbbf24',
-  purple: '#8b5cf6',
-  purpleLight: '#c4b5fd',
-  blue: '#6366f1',
-  rose: '#e11d48',
-  emerald: '#34d399',
+  purple: '#7B1FA2',
+  purpleLight: '#CE93D8',
+  blue: '#4A148C',
+  rose: '#c62828',
+  emerald: '#2E7D32',
   teal: '#14b8a6',
-  amber: '#f59e0b',
+  amber: '#d4a017',
   orange: '#f97316',
+  olive: '#827717',
 }
 
 interface SeasonalBarChartProps {
@@ -90,7 +91,7 @@ interface CategoryPieChartProps {
   data: { name: string; value: number; color?: string }[]
 }
 
-const pieColors = [COLORS.green, COLORS.golden, COLORS.purple, COLORS.blue, COLORS.rose, COLORS.teal, COLORS.amber, COLORS.orange]
+const pieColors = [COLORS.green, COLORS.golden, COLORS.purple, COLORS.blue, COLORS.rose, COLORS.teal, COLORS.amber, COLORS.olive]
 
 export function CategoryPieChart({ data }: CategoryPieChartProps) {
   const config: ChartConfig = {}

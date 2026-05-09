@@ -46,7 +46,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 }
 
 function formatCurrency(n: number) {
-  return new Intl.NumberFormat('ar-DZ').format(Math.round(n)) + ' دج'
+  return new Intl.NumberFormat('en-US').format(Math.round(n)) + ' دج'
 }
 
 function getKpiColor(value: number, thresholds: [number, number] = [15, 30]) {
@@ -254,10 +254,10 @@ export function FarmerDashboard() {
 
   const getReportTypeColor = (type: string) => {
     switch (type) {
-      case 'seasonal_account': return { gradient: 'from-green-500 to-emerald-600', bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-800' }
-      case 'profitability': return { gradient: 'from-amber-500 to-orange-600', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' }
-      case 'financial_certificate': return { gradient: 'from-purple-500 to-indigo-600', bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' }
-      case 'compliance': return { gradient: 'from-rose-500 to-red-600', bg: 'bg-rose-50 dark:bg-rose-900/20', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800' }
+      case 'seasonal_account': return { gradient: 'from-nature-green-dark to-green-600', bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-800' }
+      case 'profitability': return { gradient: 'from-nature-golden to-yellow-600', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' }
+      case 'financial_certificate': return { gradient: 'from-nature-purple to-nature-blue-red', bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' }
+      case 'compliance': return { gradient: 'from-nature-rose to-red-700', bg: 'bg-rose-50 dark:bg-rose-900/20', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800' }
       default: return { gradient: 'from-gray-500 to-gray-600', bg: 'bg-gray-50 dark:bg-gray-900/20', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-800' }
     }
   }
@@ -304,7 +304,7 @@ export function FarmerDashboard() {
       >
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl green-gradient flex items-center justify-center shadow-lg shadow-green-500/20">
+            <div className="w-10 h-10 rounded-xl luxury-gradient flex items-center justify-center shadow-lg shadow-amber-500/20">
               <Sprout className="size-6 text-white" />
             </div>
             <div>
@@ -385,10 +385,10 @@ export function FarmerDashboard() {
                 {/* Summary cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   {[
-                    { label: 'إجمالي المداخيل', value: s?.totalIncome || 0, icon: TrendingUp, color: 'from-green-500 to-emerald-600', shadow: 'shadow-green-500/20' },
-                    { label: 'إجمالي المصاريف', value: s?.totalExpense || 0, icon: TrendingDown, color: 'from-rose-500 to-red-600', shadow: 'shadow-rose-500/20' },
-                    { label: 'صافي الربح', value: s?.netProfit || 0, icon: Award, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
-                    { label: 'نسبة الربحية', value: s?.profitabilityRate || 0, icon: BarChart3, color: 'from-purple-500 to-indigo-600', shadow: 'shadow-purple-500/20', isPercent: true },
+                    { label: 'إجمالي المداخيل', value: s?.totalIncome || 0, icon: TrendingUp, color: 'from-nature-green-dark to-green-600', shadow: 'shadow-green-500/20' },
+                    { label: 'إجمالي المصاريف', value: s?.totalExpense || 0, icon: TrendingDown, color: 'from-nature-rose to-red-700', shadow: 'shadow-rose-500/20' },
+                    { label: 'صافي الربح', value: s?.netProfit || 0, icon: Award, color: 'from-nature-golden to-yellow-600', shadow: 'shadow-amber-500/20' },
+                    { label: 'نسبة الربحية', value: s?.profitabilityRate || 0, icon: BarChart3, color: 'from-nature-purple to-nature-blue-red', shadow: 'shadow-purple-500/20', isPercent: true },
                   ].map((card, i) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
                       <Card className={`border-0 shadow-xl ${card.shadow} overflow-hidden`}>
@@ -435,7 +435,7 @@ export function FarmerDashboard() {
                           )}
                           {kpi.type === 'number' && (
                             <p className="text-2xl font-black">
-                              {new Intl.NumberFormat('ar-DZ').format(Math.round(kpi.value))}{' '}
+                              {new Intl.NumberFormat('en-US').format(Math.round(kpi.value))}{' '}
                               <span className="text-xs text-muted-foreground font-normal">{kpi.unit}</span>
                             </p>
                           )}
@@ -545,7 +545,7 @@ export function FarmerDashboard() {
                               </div>
                               <div>
                                 <p className="text-sm font-medium">{t.category?.nameAr || 'أخرى'}</p>
-                                <p className="text-xs text-muted-foreground">{t.note || new Date(t.txnDate).toLocaleDateString('ar-DZ')}</p>
+                                <p className="text-xs text-muted-foreground">{t.note || new Date(t.txnDate).toLocaleDateString('fr-FR')}</p>
                               </div>
                             </div>
                             <p className={`text-sm font-bold ${t.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -707,7 +707,7 @@ export function FarmerDashboard() {
                                 </div>
                                 <div>
                                   <p className="text-sm font-bold">{t.category?.nameAr || 'أخرى'}</p>
-                                  <p className="text-xs text-muted-foreground">{t.note || '—'} • {new Date(t.txnDate).toLocaleDateString('ar-DZ')}</p>
+                                  <p className="text-xs text-muted-foreground">{t.note || '—'} • {new Date(t.txnDate).toLocaleDateString('fr-FR')}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
@@ -862,10 +862,10 @@ export function FarmerDashboard() {
                 {/* Generate report buttons */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                   {[
-                    { type: 'seasonal_account', label: 'كشف حساب موسمي', icon: FileText, color: 'from-green-500 to-emerald-600' },
-                    { type: 'profitability', label: 'تقرير الربحية', icon: BarChart3, color: 'from-amber-500 to-orange-600' },
-                    { type: 'financial_certificate', label: 'شهادة أداء مالي', icon: Award, color: 'from-purple-500 to-indigo-600' },
-                    { type: 'compliance', label: 'تقرير الامتثال', icon: Shield, color: 'from-rose-500 to-red-600' },
+                    { type: 'seasonal_account', label: 'كشف حساب موسمي', icon: FileText, color: 'from-nature-green-dark to-green-600' },
+                    { type: 'profitability', label: 'تقرير الربحية', icon: BarChart3, color: 'from-nature-golden to-yellow-600' },
+                    { type: 'financial_certificate', label: 'شهادة أداء مالي', icon: Award, color: 'from-nature-purple to-nature-blue-red' },
+                    { type: 'compliance', label: 'تقرير الامتثال', icon: Shield, color: 'from-nature-rose to-red-700' },
                   ].map(r => (
                     <Card key={r.type} className="border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer group" onClick={() => handleGenerateReport(r.type)}>
                       <CardContent className="p-5 flex items-center gap-4">
@@ -899,7 +899,7 @@ export function FarmerDashboard() {
                                    r.reportType === 'profitability' ? 'تقرير الربحية' :
                                    r.reportType === 'financial_certificate' ? 'شهادة أداء مالي' : 'تقرير الامتثال'}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{new Date(r.generatedAt).toLocaleDateString('ar-DZ')}</p>
+                                <p className="text-xs text-muted-foreground">{new Date(r.generatedAt).toLocaleDateString('fr-FR')}</p>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm" onClick={() => handleViewReport(r)} className="hover:bg-nature-green/10 hover:text-nature-green">
@@ -942,7 +942,7 @@ export function FarmerDashboard() {
                       <div>
                         <h2 className="text-xl font-bold">{rData.title || getReportTypeLabel(rType)}</h2>
                         <p className="text-white/80 text-sm">
-                          {new Date(selectedReport.generatedAt).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' })}
+                          {new Date(selectedReport.generatedAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
                       </div>
                     </div>
@@ -1046,7 +1046,7 @@ export function FarmerDashboard() {
                                   <TableRow key={idx} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
                                     <TableCell className="font-medium">{item.category}</TableCell>
                                     <TableCell className="text-green-700 dark:text-green-300 font-bold">{formatCurrency(item.amount)}</TableCell>
-                                    <TableCell className="text-muted-foreground">{new Date(item.date).toLocaleDateString('ar-DZ')}</TableCell>
+                                    <TableCell className="text-muted-foreground">{new Date(item.date).toLocaleDateString('fr-FR')}</TableCell>
                                   </TableRow>
                                 ))}
                                 {!rData.incomeDetails?.length && (
@@ -1077,7 +1077,7 @@ export function FarmerDashboard() {
                                   <TableRow key={idx} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
                                     <TableCell className="font-medium">{item.category}</TableCell>
                                     <TableCell className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(item.amount)}</TableCell>
-                                    <TableCell className="text-muted-foreground">{new Date(item.date).toLocaleDateString('ar-DZ')}</TableCell>
+                                    <TableCell className="text-muted-foreground">{new Date(item.date).toLocaleDateString('fr-FR')}</TableCell>
                                   </TableRow>
                                 ))}
                                 {!rData.expenseDetails?.length && (
@@ -1180,12 +1180,12 @@ export function FarmerDashboard() {
 
                           {/* Certificate header */}
                           <div className="text-center mb-6">
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-purple-500/30">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-nature-golden to-yellow-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/30">
                               <Award className="size-8 text-white" />
                             </div>
                             <h3 className="text-xl font-black text-purple-700 dark:text-purple-300">شهادة أداء مالي</h3>
                             <p className="text-sm text-muted-foreground mt-1">Financial Performance Certificate</p>
-                            <div className="w-24 h-0.5 bg-gradient-to-l from-purple-500 to-indigo-600 mx-auto mt-3" />
+                            <div className="w-24 h-0.5 bg-gradient-to-l from-nature-golden to-yellow-600 mx-auto mt-3" />
                           </div>
 
                           {/* Farm info */}

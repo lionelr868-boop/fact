@@ -234,21 +234,21 @@ function HeroSection() {
     return () => clearInterval(interval)
   }, [])
 
-  // Floating cards data
+  // Floating cards data - using luxury colors
   const floatingCards = [
-    { icon: TrendingUp, label: 'الإيرادات', value: '+٢٣٪', color: 'from-green-500 to-emerald-600', delay: 0 },
-    { icon: Package, label: 'المخزون', value: '٤٨ عنصر', color: 'from-amber-500 to-orange-600', delay: 0.2 },
-    { icon: Award, label: 'الأداء', value: '٩٢٪', color: 'from-purple-500 to-indigo-600', delay: 0.4 },
+    { icon: TrendingUp, label: 'الإيرادات', value: '+23%', color: 'from-nature-green-dark to-green-600', delay: 0 },
+    { icon: Package, label: 'المخزون', value: '48 عنصر', color: 'from-nature-golden to-yellow-600', delay: 0.2 },
+    { icon: Award, label: 'الأداء', value: '92%', color: 'from-nature-purple to-nature-blue-red', delay: 0.4 },
   ]
 
   return (
     <section ref={ref} className="relative min-h-screen flex items-center justify-center overflow-hidden hero-gradient">
-      {/* Animated Background Orbs */}
+      {/* Animated Background Orbs - Luxury palette */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[10%] right-[15%] w-[500px] h-[500px] bg-green-400/15 rounded-full blur-[100px] animate-orb-1" />
-        <div className="absolute bottom-[10%] left-[10%] w-[600px] h-[600px] bg-amber-400/10 rounded-full blur-[120px] animate-orb-2" />
-        <div className="absolute top-[40%] left-[40%] w-[400px] h-[400px] bg-purple-400/10 rounded-full blur-[80px] animate-orb-3" />
-        <div className="absolute bottom-[30%] right-[30%] w-[300px] h-[300px] bg-green-300/8 rounded-full blur-[60px] animate-orb-2" />
+        <div className="absolute top-[10%] right-[15%] w-[500px] h-[500px] bg-green-800/10 rounded-full blur-[100px] animate-orb-1" />
+        <div className="absolute bottom-[10%] left-[10%] w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-[120px] animate-orb-2" />
+        <div className="absolute top-[40%] left-[40%] w-[400px] h-[400px] bg-purple-700/10 rounded-full blur-[80px] animate-orb-3" />
+        <div className="absolute bottom-[30%] right-[30%] w-[300px] h-[300px] bg-yellow-600/8 rounded-full blur-[60px] animate-orb-2" />
       </div>
 
       {/* Dot pattern overlay */}
@@ -386,19 +386,35 @@ function HeroSection() {
 }
 
 /* ============================================================
-   STATS SECTION
+   STATS SECTION - Dynamic from API
    ============================================================ */
-const stats = [
-  { icon: Users, value: 500, suffix: '+', label: 'مستغل فلاحي', color: 'from-green-500 to-emerald-600' },
-  { icon: DollarSign, value: 10000, suffix: '+', label: 'عملية مالية', color: 'from-amber-500 to-orange-600' },
-  { icon: MapPin, value: 48, suffix: '', label: 'ولاية جزائرية', color: 'from-purple-500 to-indigo-600' },
-  { icon: Activity, value: 95, suffix: '٪', label: 'نسبة الرضا', color: 'from-rose-500 to-red-600' },
-]
+interface PlatformStats {
+  totalFarms: number
+  totalTransactions: number
+  totalFarmers: number
+  totalWilayas: number
+  totalIncome: number
+  totalExpense: number
+  netProfit: number
+  avgProfitability: number
+}
+
+function formatStatCurrency(n: number) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'م'
+  if (n >= 1000) return (n / 1000).toFixed(0) + 'ألف'
+  return n.toLocaleString('en-US')
+}
+
+const defaultStats: PlatformStats = {
+  totalFarms: 0, totalTransactions: 0, totalFarmers: 0,
+  totalWilayas: 0, totalIncome: 0, totalExpense: 0,
+  netProfit: 0, avgProfitability: 0,
+}
 
 /* ============================================================
    STAT CARD COMPONENT
    ============================================================ */
-function StatCard({ stat, idx }: { stat: typeof stats[0]; idx: number }) {
+function StatCard({ stat, idx }: { stat: { icon: any; value: number; suffix: string; label: string; color: string }; idx: number }) {
   const { count, ref } = useCounter(stat.value, 2000 + idx * 300)
   return (
     <motion.div
@@ -413,7 +429,7 @@ function StatCard({ stat, idx }: { stat: typeof stats[0]; idx: number }) {
             <stat.icon className="size-7 text-white" />
           </div>
           <div className="text-3xl sm:text-4xl font-black text-foreground mb-1 animate-counter-glow">
-            {stat.suffix === '٪' ? `${count}${stat.suffix}` : `${count.toLocaleString('ar-SA')}${stat.suffix}`}
+            {stat.suffix === '%' ? `${count}${stat.suffix}` : `${count.toLocaleString('en-US')}${stat.suffix}`}
           </div>
           <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
         </CardContent>
@@ -423,10 +439,26 @@ function StatCard({ stat, idx }: { stat: typeof stats[0]; idx: number }) {
 }
 
 function StatsSection() {
+  const [platformStats, setPlatformStats] = useState<PlatformStats>(defaultStats)
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(data => { if (data.success) setPlatformStats(data.data) })
+      .catch(() => {})
+  }, [])
+
+  const stats = [
+    { icon: Users, value: platformStats.totalFarmers || 5, suffix: '+', label: 'مستغل فلاحي', color: 'from-nature-green-dark to-green-600' },
+    { icon: DollarSign, value: platformStats.totalTransactions || 0, suffix: '+', label: 'عملية مالية', color: 'from-nature-golden to-yellow-600' },
+    { icon: MapPin, value: platformStats.totalWilayas || 48, suffix: '', label: 'ولاية جزائرية', color: 'from-nature-purple to-nature-blue-red' },
+    { icon: Activity, value: Math.round(platformStats.avgProfitability || 95), suffix: '%', label: 'نسبة الربحية', color: 'from-nature-rose to-red-700' },
+  ]
+
   return (
     <section className="relative py-20 overflow-hidden">
       {/* Subtle background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-50/30 to-transparent dark:via-green-950/10" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-50/20 to-transparent dark:via-amber-950/5" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <motion.div
@@ -453,7 +485,7 @@ const features = [
     icon: BarChart3,
     title: 'تسجيل المداخيل والمصاريف',
     desc: 'تتبع جميع عملياتك المالية بدقة وسهولة مع تصنيف ذكي وتقسيم حسب المواسم الفلاحية',
-    color: 'from-green-500 to-emerald-600',
+    color: 'from-nature-green-dark to-green-600',
     span: 'sm:col-span-2',
     visual: 'chart',
   },
@@ -461,7 +493,7 @@ const features = [
     icon: Package,
     title: 'تتبع المخزون الفلاحي',
     desc: 'إدارة مخزونك من البذور والأسمدة والمنتجات بكفاءة عالية',
-    color: 'from-amber-500 to-orange-600',
+    color: 'from-nature-golden to-yellow-600',
     span: '',
     visual: 'inventory',
   },
@@ -469,7 +501,7 @@ const features = [
     icon: FileText,
     title: 'التقارير المالية',
     desc: 'تقارير مفصلة لأنواع مختلفة مع إمكانية التصدير',
-    color: 'from-purple-500 to-indigo-600',
+    color: 'from-nature-purple to-nature-blue-red',
     span: '',
     visual: 'report',
   },
@@ -477,15 +509,15 @@ const features = [
     icon: LayoutDashboard,
     title: 'لوحة قيادة الحوكمة',
     desc: 'مؤشرات أداء رئيسية ولوحات تحكم شاملة لاتخاذ قرارات أفضل',
-    color: 'from-rose-500 to-red-600',
+    color: 'from-nature-rose to-red-700',
     span: 'sm:col-span-2',
     visual: 'dashboard',
   },
   {
     icon: Gauge,
     title: 'مؤشرات الأداء',
-    desc: '٨ مؤشرات أداء رئيسية محسوبة تلقائياً',
-    color: 'from-cyan-500 to-teal-600',
+    desc: '8 مؤشرات أداء رئيسية محسوبة تلقائياً',
+    color: 'from-nature-olive to-olive-600',
     span: '',
     visual: 'gauge',
   },
@@ -493,7 +525,7 @@ const features = [
     icon: Award,
     title: 'شهادات الأداء المالي',
     desc: 'شهادات أداء مالي معتمدة لتحسين الحوكمة',
-    color: 'from-nature-golden to-yellow-600',
+    color: 'from-nature-golden to-amber-700',
     span: '',
     visual: 'certificate',
   },
@@ -566,7 +598,7 @@ function MiniGauge() {
             <stop offset="100%" stopColor="#d4a017" />
           </linearGradient>
         </defs>
-        <text x="40" y="42" textAnchor="middle" className="text-xs font-bold fill-foreground">٧٨٪</text>
+        <text x="40" y="42" textAnchor="middle" className="text-xs font-bold fill-foreground">78%</text>
       </svg>
     </div>
   )
@@ -588,9 +620,9 @@ function MiniDashboard() {
   return (
     <div className="grid grid-cols-3 gap-2 mt-3">
       {[
-        { label: 'الإيرادات', val: '٢.٤م', c: 'bg-green-500/20 text-green-600 dark:text-green-400' },
-        { label: 'المصاريف', val: '١.٨م', c: 'bg-red-500/20 text-red-600 dark:text-red-400' },
-        { label: 'الربح', val: '٠.٦م', c: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
+        { label: 'الإيرادات', val: '2.4م', c: 'bg-green-500/20 text-green-600 dark:text-green-400' },
+        { label: 'المصاريف', val: '1.8م', c: 'bg-red-500/20 text-red-600 dark:text-red-400' },
+        { label: 'الربح', val: '0.6م', c: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
       ].map((k, i) => (
         <div key={i} className={`rounded-lg p-2 text-center ${k.c}`}>
           <p className="text-[10px] opacity-70">{k.label}</p>
@@ -693,28 +725,28 @@ function FeaturesSection() {
    ============================================================ */
 const steps = [
   {
-    num: '١',
+    num: '1',
     title: 'سجّل حسابك',
     desc: 'أنشئ حسابك في دقائق وحدد نوع مستغلك الفلاحي وموقعه الجغرافي',
     icon: Tractor,
-    color: 'from-green-500 to-emerald-600',
+    color: 'from-nature-green-dark to-green-600',
     details: ['تسجيل سريع بالمعلومات الأساسية', 'اختيار الولاية ونوع الإنتاج', 'تحديد مساحة المستغل'],
   },
   {
-    num: '٢',
+    num: '2',
     title: 'سجّل عملياتك',
     desc: 'أضف مداخيلك ومصاريفك يومياً مع تصنيف ذكي حسب المواسم',
     icon: Sun,
-    color: 'from-amber-500 to-orange-600',
+    color: 'from-nature-golden to-yellow-600',
     details: ['تسجيل المداخيل والمصاريف', 'تصنيف تلقائي حسب الفئات', 'ربط العمليات بالمواسم الفلاحية'],
   },
   {
-    num: '٣',
+    num: '3',
     title: 'حسّن حوكمتك',
     desc: 'استفد من التقارير والمؤشرات لتحسين أداء مستغلك الفلاحي',
     icon: ChartNoAxesCombined,
-    color: 'from-purple-500 to-indigo-600',
-    details: ['تقارير مالية مفصلة', '٨ مؤشرات أداء رئيسية', 'شهادات أداء مالي معتمدة'],
+    color: 'from-nature-purple to-nature-blue-red',
+    details: ['تقارير مالية مفصلة', '8 مؤشرات أداء رئيسية', 'شهادات أداء مالي معتمدة'],
   },
 ]
 
@@ -932,7 +964,7 @@ function DashboardPreviewSection() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-[10px] text-green-700 dark:text-green-300 font-medium">
-                        موسم الخريف ٢٠٢٤
+                        موسم الخريف 2024
                       </div>
                     </div>
                   </div>
@@ -940,10 +972,10 @@ function DashboardPreviewSection() {
                   {/* KPI cards row */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                     {[
-                      { label: 'إجمالي الإيرادات', value: '٢,٤٠٠,٠٠٠ د.ج', change: '+١٢٪', c: 'text-green-600 dark:text-green-400' },
-                      { label: 'إجمالي المصاريف', value: '١,٨٠٠,٠٠٠ د.ج', change: '-٥٪', c: 'text-red-500' },
-                      { label: 'صافي الربح', value: '٦٠٠,٠٠٠ د.ج', change: '+٢٣٪', c: 'text-green-600 dark:text-green-400' },
-                      { label: 'معدل الربحية', value: '٢٥٪', change: '+٣٪', c: 'text-amber-600 dark:text-amber-400' },
+                      { label: 'إجمالي الإيرادات', value: '2,400,000 د.ج', change: '+12%', c: 'text-green-600 dark:text-green-400' },
+                      { label: 'إجمالي المصاريف', value: '1,800,000 د.ج', change: '-5%', c: 'text-red-500' },
+                      { label: 'صافي الربح', value: '600,000 د.ج', change: '+23%', c: 'text-green-600 dark:text-green-400' },
+                      { label: 'معدل الربحية', value: '25%', change: '+3%', c: 'text-amber-600 dark:text-amber-400' },
                     ].map((kpi, i) => (
                       <div key={i} className="bg-card rounded-xl p-3 border border-border/50 shadow-sm">
                         <p className="text-[10px] text-muted-foreground">{kpi.label}</p>
@@ -994,7 +1026,7 @@ function DashboardPreviewSection() {
                   <div className="bg-card rounded-xl p-3 border border-border/50 shadow-sm">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-bold">مؤشر الحوكمة</p>
-                      <span className="text-xs text-green-600 dark:text-green-400 font-bold">٧٨٪</span>
+                      <span className="text-xs text-green-600 dark:text-green-400 font-bold">78%</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <motion.div
@@ -1025,7 +1057,7 @@ function DashboardPreviewSection() {
                   <TrendingUp className="size-4 text-green-500" />
                   <span className="text-xs font-bold">صافي الربح</span>
                 </div>
-                <p className="text-lg font-black text-green-600 dark:text-green-400">+٢٣٪</p>
+                <p className="text-lg font-black text-green-600 dark:text-green-400">+23%</p>
                 <p className="text-[10px] text-muted-foreground">مقارنة بالموسم السابق</p>
               </CardContent>
             </Card>
@@ -1044,7 +1076,7 @@ function DashboardPreviewSection() {
                   <Shield className="size-4 text-purple-500" />
                   <span className="text-xs font-bold">الحوكمة</span>
                 </div>
-                <p className="text-lg font-black text-purple-600 dark:text-purple-400">٧٨٪</p>
+                <p className="text-lg font-black text-purple-600 dark:text-purple-400">78%</p>
                 <p className="text-[10px] text-muted-foreground">مؤشر أداء الحوكمة</p>
               </CardContent>
             </Card>

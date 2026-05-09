@@ -32,7 +32,7 @@ interface AdminData {
 }
 
 function formatCurrency(n: number) {
-  return new Intl.NumberFormat('ar-DZ').format(Math.round(n)) + ' دج'
+  return new Intl.NumberFormat('en-US').format(Math.round(n)) + ' دج'
 }
 
 export function AdminDashboard() {
@@ -128,10 +128,10 @@ export function AdminDashboard() {
               {/* Summary cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: 'إجمالي المستغلات', value: data?.totalFarms || 0, icon: Sprout, color: 'from-green-500 to-emerald-600', shadow: 'shadow-green-500/20' },
-                  { label: 'إجمالي المستخدمين', value: data?.totalUsers || 0, icon: Users, color: 'from-purple-500 to-indigo-600', shadow: 'shadow-purple-500/20' },
-                  { label: 'إجمالي العمليات', value: data?.totalTransactions || 0, icon: Activity, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
-                  { label: 'متوسط الربحية', value: data?.avgProfitability || 0, icon: BarChart3, color: 'from-blue-500 to-cyan-600', shadow: 'shadow-blue-500/20', isPercent: true },
+                  { label: 'إجمالي المستغلات', value: data?.totalFarms || 0, icon: Sprout, color: 'from-nature-green-dark to-green-600', shadow: 'shadow-green-500/20' },
+                  { label: 'إجمالي المستخدمين', value: data?.totalUsers || 0, icon: Users, color: 'from-nature-purple to-nature-blue-red', shadow: 'shadow-purple-500/20' },
+                  { label: 'إجمالي العمليات', value: data?.totalTransactions || 0, icon: Activity, color: 'from-nature-golden to-yellow-600', shadow: 'shadow-amber-500/20' },
+                  { label: 'متوسط الربحية', value: data?.avgProfitability || 0, icon: BarChart3, color: 'from-nature-rose to-red-700', shadow: 'shadow-red-500/20', isPercent: true },
                 ].map((card, i) => (
                   <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
                     <Card className={`border-0 shadow-xl ${card.shadow} overflow-hidden`}>
@@ -144,7 +144,7 @@ export function AdminDashboard() {
                           </div>
                         </div>
                         <p className="text-2xl font-black">
-                          {card.isPercent ? `${(card.value as number).toFixed(1)}%` : new Intl.NumberFormat('ar-DZ').format(card.value as number)}
+                          {card.isPercent ? `${(card.value as number).toFixed(1)}%` : new Intl.NumberFormat('en-US').format(card.value as number)}
                         </p>
                       </CardContent>
                     </Card>
@@ -155,14 +155,14 @@ export function AdminDashboard() {
               {/* Financial summary */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <Card className="border-0 shadow-lg overflow-hidden">
-                  <div className="h-1 bg-gradient-to-l from-green-500 to-emerald-600" />
+                  <div className="h-1 bg-gradient-to-l from-nature-green-dark to-green-600" />
                   <CardContent className="p-4 text-center">
                     <p className="text-xs text-muted-foreground mb-1">إجمالي المداخيل</p>
                     <p className="text-xl font-black text-green-600 dark:text-green-400">{formatCurrency(data?.totalIncome || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-0 shadow-lg overflow-hidden">
-                  <div className="h-1 bg-gradient-to-l from-rose-500 to-red-600" />
+                  <div className="h-1 bg-gradient-to-l from-nature-rose to-red-700" />
                   <CardContent className="p-4 text-center">
                     <p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p>
                     <p className="text-xl font-black text-red-600 dark:text-red-400">{formatCurrency(data?.totalExpense || 0)}</p>
@@ -365,7 +365,7 @@ export function AdminDashboard() {
                         <div className="text-left">
                           <Badge>{u.role === 'ADMIN' ? 'مدير' : 'فلاح'}</Badge>
                           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Calendar className="size-3" />{new Date(u.createdAt).toLocaleDateString('ar-DZ')}
+                            <Calendar className="size-3" />{new Date(u.createdAt).toLocaleDateString('fr-FR')}
                           </p>
                         </div>
                       </div>
