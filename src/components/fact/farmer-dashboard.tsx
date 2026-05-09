@@ -9,14 +9,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Sprout, Home, ArrowUpDown, Package, FileText, LogOut, Moon, Sun,
   Plus, TrendingUp, TrendingDown, AlertTriangle, Wheat,
   Trash2, Eye, Droplets, Wrench, Truck, Users, FlaskConical, Landmark, Milk,
-  Carrot, BarChart3, Shield, Award
+  Carrot, BarChart3, Shield, Award, CheckCircle2, XCircle, Printer, MapPin,
+  Calendar, DollarSign, Percent, Leaf, BookOpen, Stamp
 } from 'lucide-react'
 import { SeasonalBarChart, ProfitabilityGauge, CategoryPieChart, InventoryBarChart, MonthlyAreaChart } from './charts'
 import { toast } from 'sonner'
@@ -70,6 +72,9 @@ export function FarmerDashboard() {
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [farm, setFarm] = useState<any>(null)
+  const [reportViewerOpen, setReportViewerOpen] = useState(false)
+  const [selectedReport, setSelectedReport] = useState<any>(null)
+  const [selectedReportData, setSelectedReportData] = useState<any>(null)
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -213,12 +218,47 @@ export function FarmerDashboard() {
       const data = await res.json()
       if (data.success) {
         toast.success('تم إنشاء التقرير بنجاح')
+        // Auto-open the generated report
+        setSelectedReport(data.data.report)
+        setSelectedReportData(data.data.reportData)
+        setReportViewerOpen(true)
         refreshData()
       } else {
         toast.error(data.error)
       }
     } catch {
       toast.error('حدث خطأ')
+    }
+  }
+
+  const handleViewReport = (report: any) => {
+    try {
+      const parsed = typeof report.data === 'string' ? JSON.parse(report.data) : report.data
+      setSelectedReport(report)
+      setSelectedReportData(parsed)
+      setReportViewerOpen(true)
+    } catch {
+      toast.error('خطأ في قراءة بيانات التقرير')
+    }
+  }
+
+  const getReportTypeLabel = (type: string) => {
+    switch (type) {
+      case 'seasonal_account': return 'كشف حساب موسمي'
+      case 'profitability': return 'تقرير الربحية'
+      case 'financial_certificate': return 'شهادة أداء مالي'
+      case 'compliance': return 'تقرير الامتثال'
+      default: return 'تقرير'
+    }
+  }
+
+  const getReportTypeColor = (type: string) => {
+    switch (type) {
+      case 'seasonal_account': return { gradient: 'from-green-500 to-emerald-600', bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-800' }
+      case 'profitability': return { gradient: 'from-amber-500 to-orange-600', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' }
+      case 'financial_certificate': return { gradient: 'from-purple-500 to-indigo-600', bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' }
+      case 'compliance': return { gradient: 'from-rose-500 to-red-600', bg: 'bg-rose-50 dark:bg-rose-900/20', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800' }
+      default: return { gradient: 'from-gray-500 to-gray-600', bg: 'bg-gray-50 dark:bg-gray-900/20', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-200 dark:border-gray-800' }
     }
   }
 
@@ -862,7 +902,7 @@ export function FarmerDashboard() {
                                 <p className="text-xs text-muted-foreground">{new Date(r.generatedAt).toLocaleDateString('ar-DZ')}</p>
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" onClick={() => handleViewReport(r)} className="hover:bg-nature-green/10 hover:text-nature-green">
                               <Eye className="size-4" />
                             </Button>
                           </div>
@@ -878,6 +918,410 @@ export function FarmerDashboard() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Report Viewer Dialog */}
+      <Dialog open={reportViewerOpen} onOpenChange={setReportViewerOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden" showCloseButton>
+          {selectedReport && selectedReportData && (() => {
+            const rData = selectedReportData
+            const rType = selectedReport.reportType
+            const colors = getReportTypeColor(rType)
+
+            return (
+              <div className="flex flex-col max-h-[90vh]">
+                {/* Header with gradient */}
+                <div className={`bg-gradient-to-l ${colors.gradient} p-6 text-white`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                        {rType === 'seasonal_account' && <BookOpen className="size-6" />}
+                        {rType === 'profitability' && <BarChart3 className="size-6" />}
+                        {rType === 'financial_certificate' && <Stamp className="size-6" />}
+                        {rType === 'compliance' && <Shield className="size-6" />}
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold">{rData.title || getReportTypeLabel(rType)}</h2>
+                        <p className="text-white/80 text-sm">
+                          {new Date(selectedReport.generatedAt).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-white/20"
+                      onClick={() => window.print()}
+                    >
+                      <Printer className="size-4 ml-1" />
+                      طباعة
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Report content */}
+                <ScrollArea className="flex-1 overflow-auto">
+                  <div className="p-6 space-y-6">
+                    {/* Seasonal Account Report */}
+                    {rType === 'seasonal_account' && (
+                      <>
+                        {/* Farm & Season Info */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className={`${colors.bg} rounded-xl p-4 border ${colors.border}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <MapPin className={`size-4 ${colors.text}`} />
+                              <span className="text-sm font-bold">معلومات المزرعة</span>
+                            </div>
+                            <p className="text-sm font-medium">{rData.farm?.name}</p>
+                            <p className="text-xs text-muted-foreground">{rData.farm?.wilaya} • {rData.farm?.area} هكتار</p>
+                          </div>
+                          <div className={`${colors.bg} rounded-xl p-4 border ${colors.border}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Calendar className={`size-4 ${colors.text}`} />
+                              <span className="text-sm font-bold">الموسم</span>
+                            </div>
+                            <p className="text-sm font-medium">
+                              {rData.season?.type === 'autumn' ? 'خريف' : 'ربيع'} {rData.season?.year}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800 text-center">
+                            <TrendingUp className="size-5 text-green-600 dark:text-green-400 mx-auto mb-1" />
+                            <p className="text-xs text-muted-foreground mb-1">إجمالي المداخيل</p>
+                            <p className="text-lg font-black text-green-700 dark:text-green-300">{formatCurrency(rData.summary?.totalIncome || 0)}</p>
+                          </div>
+                          <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800 text-center">
+                            <TrendingDown className="size-5 text-red-600 dark:text-red-400 mx-auto mb-1" />
+                            <p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p>
+                            <p className="text-lg font-black text-red-700 dark:text-red-300">{formatCurrency(rData.summary?.totalExpense || 0)}</p>
+                          </div>
+                          <div className={`rounded-xl p-4 border text-center ${
+                            (rData.summary?.netProfit || 0) >= 0
+                              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                          }`}>
+                            <DollarSign className={`size-5 mx-auto mb-1 ${
+                              (rData.summary?.netProfit || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                            }`} />
+                            <p className="text-xs text-muted-foreground mb-1">صافي الربح</p>
+                            <p className={`text-lg font-black ${
+                              (rData.summary?.netProfit || 0) >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
+                            }`}>{formatCurrency(rData.summary?.netProfit || 0)}</p>
+                          </div>
+                        </div>
+
+                        {/* Profitability Rate */}
+                        <div className={`${colors.bg} rounded-xl p-4 border ${colors.border}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-bold flex items-center gap-2">
+                              <Percent className={`size-4 ${colors.text}`} />
+                              نسبة الربحية
+                            </span>
+                            <span className={`text-2xl font-black ${colors.text}`}>
+                              {rData.summary?.profitabilityRate?.toFixed(1) || 0}%
+                            </span>
+                          </div>
+                          <Progress value={Math.min(100, Math.max(0, rData.summary?.profitabilityRate || 0))} className="h-3" />
+                        </div>
+
+                        {/* Income Details Table */}
+                        <div>
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <TrendingUp className="size-4 text-green-600" />
+                            تفاصيل المداخيل
+                          </h3>
+                          <div className="rounded-xl border overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-green-50 dark:bg-green-900/20">
+                                  <TableHead className="text-right font-bold">البند</TableHead>
+                                  <TableHead className="text-right font-bold">المبلغ</TableHead>
+                                  <TableHead className="text-right font-bold">التاريخ</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rData.incomeDetails?.map((item: any, idx: number) => (
+                                  <TableRow key={idx} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
+                                    <TableCell className="font-medium">{item.category}</TableCell>
+                                    <TableCell className="text-green-700 dark:text-green-300 font-bold">{formatCurrency(item.amount)}</TableCell>
+                                    <TableCell className="text-muted-foreground">{new Date(item.date).toLocaleDateString('ar-DZ')}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {!rData.incomeDetails?.length && (
+                                  <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">لا توجد مداخيل</TableCell></TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+
+                        {/* Expense Details Table */}
+                        <div>
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <TrendingDown className="size-4 text-red-600" />
+                            تفاصيل المصاريف
+                          </h3>
+                          <div className="rounded-xl border overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-red-50 dark:bg-red-900/20">
+                                  <TableHead className="text-right font-bold">البند</TableHead>
+                                  <TableHead className="text-right font-bold">المبلغ</TableHead>
+                                  <TableHead className="text-right font-bold">التاريخ</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rData.expenseDetails?.map((item: any, idx: number) => (
+                                  <TableRow key={idx} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
+                                    <TableCell className="font-medium">{item.category}</TableCell>
+                                    <TableCell className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(item.amount)}</TableCell>
+                                    <TableCell className="text-muted-foreground">{new Date(item.date).toLocaleDateString('ar-DZ')}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {!rData.expenseDetails?.length && (
+                                  <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">لا توجد مصاريف</TableCell></TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Profitability Report */}
+                    {rType === 'profitability' && (
+                      <>
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 border border-green-200 dark:border-green-800 text-center">
+                            <TrendingUp className="size-4 text-green-600 mx-auto mb-1" />
+                            <p className="text-[10px] text-muted-foreground">المداخيل</p>
+                            <p className="text-sm font-black text-green-700 dark:text-green-300">{formatCurrency(rData.summary?.totalIncome || 0)}</p>
+                          </div>
+                          <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 border border-red-200 dark:border-red-800 text-center">
+                            <TrendingDown className="size-4 text-red-600 mx-auto mb-1" />
+                            <p className="text-[10px] text-muted-foreground">المصاريف</p>
+                            <p className="text-sm font-black text-red-700 dark:text-red-300">{formatCurrency(rData.summary?.totalExpense || 0)}</p>
+                          </div>
+                          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800 text-center">
+                            <DollarSign className="size-4 text-amber-600 mx-auto mb-1" />
+                            <p className="text-[10px] text-muted-foreground">صافي الربح</p>
+                            <p className="text-sm font-black text-amber-700 dark:text-amber-300">{formatCurrency(rData.summary?.netProfit || 0)}</p>
+                          </div>
+                          <div className={`${colors.bg} rounded-xl p-3 border ${colors.border} text-center`}>
+                            <Percent className={`size-4 ${colors.text} mx-auto mb-1`} />
+                            <p className="text-[10px] text-muted-foreground">نسبة الربحية</p>
+                            <p className={`text-sm font-black ${colors.text}`}>{rData.summary?.profitabilityRate?.toFixed(1) || 0}%</p>
+                          </div>
+                        </div>
+
+                        {/* Category Breakdown */}
+                        <div>
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <BarChart3 className="size-4 text-amber-600" />
+                            تحليل الربحية حسب البند
+                          </h3>
+                          <div className="space-y-3">
+                            {Object.entries(rData.byCategory || {}).map(([cat, data]: [string, any], idx: number) => {
+                              const net = (data.income || 0) - (data.expense || 0)
+                              const maxVal = Math.max(rData.summary?.totalIncome || 1, rData.summary?.totalExpense || 1)
+                              return (
+                                <div key={cat} className={`rounded-xl border p-4 ${idx % 2 === 0 ? 'bg-muted/20' : ''}`}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-bold text-sm flex items-center gap-2">
+                                      {CATEGORY_ICONS[cat] && (() => { const Icon = CATEGORY_ICONS[cat]; return <Icon className="size-4" /> })()}
+                                      {cat}
+                                    </span>
+                                    <span className={`text-sm font-bold ${net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                      {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-muted-foreground w-12">مدخول</span>
+                                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min(100, ((data.income || 0) / maxVal) * 100)}%` }} />
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground w-24 text-left" dir="ltr">{formatCurrency(data.income || 0)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-muted-foreground w-12">مصروف</span>
+                                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${Math.min(100, ((data.expense || 0) / maxVal) * 100)}%` }} />
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground w-24 text-left" dir="ltr">{formatCurrency(data.expense || 0)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            {Object.keys(rData.byCategory || {}).length === 0 && (
+                              <p className="text-center text-muted-foreground py-4">لا توجد بيانات</p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Financial Certificate Report */}
+                    {rType === 'financial_certificate' && (
+                      <div className="relative">
+                        {/* Certificate border */}
+                        <div className="border-4 border-double border-purple-300 dark:border-purple-700 rounded-2xl p-8 relative">
+                          {/* Decorative corner stamps */}
+                          <div className="absolute top-3 right-3 text-purple-300 dark:text-purple-700 opacity-50">
+                            <Stamp className="size-8" />
+                          </div>
+                          <div className="absolute bottom-3 left-3 text-purple-300 dark:text-purple-700 opacity-50">
+                            <Stamp className="size-8" />
+                          </div>
+
+                          {/* Certificate header */}
+                          <div className="text-center mb-6">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-purple-500/30">
+                              <Award className="size-8 text-white" />
+                            </div>
+                            <h3 className="text-xl font-black text-purple-700 dark:text-purple-300">شهادة أداء مالي</h3>
+                            <p className="text-sm text-muted-foreground mt-1">Financial Performance Certificate</p>
+                            <div className="w-24 h-0.5 bg-gradient-to-l from-purple-500 to-indigo-600 mx-auto mt-3" />
+                          </div>
+
+                          {/* Farm info */}
+                          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 mb-6 text-center">
+                            <p className="text-lg font-bold">{rData.farm?.name}</p>
+                            <p className="text-sm text-muted-foreground">{rData.farm?.wilaya} • {rData.farm?.area} هكتار</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              موسم {rData.season?.type === 'autumn' ? 'الخريف' : 'الربيع'} {rData.season?.year}
+                            </p>
+                          </div>
+
+                          {/* Financial Health Rating */}
+                          <div className="text-center mb-6">
+                            <p className="text-sm text-muted-foreground mb-2">التقييم المالي</p>
+                            <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-xl font-black ${
+                              rData.financialHealth === 'ممتاز'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                : rData.financialHealth === 'جيد'
+                                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                            }`}>
+                              {rData.financialHealth === 'ممتاز' && <CheckCircle2 className="size-6" />}
+                              {rData.financialHealth === 'جيد' && <AlertTriangle className="size-6" />}
+                              {rData.financialHealth === 'ضعيف' && <XCircle className="size-6" />}
+                              {rData.financialHealth}
+                            </div>
+                          </div>
+
+                          {/* Financial Summary */}
+                          <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="text-center p-3 bg-muted/30 rounded-lg">
+                              <TrendingUp className="size-4 text-green-600 mx-auto mb-1" />
+                              <p className="text-[10px] text-muted-foreground">إجمالي المداخيل</p>
+                              <p className="text-sm font-bold text-green-700 dark:text-green-300">{formatCurrency(rData.summary?.totalIncome || 0)}</p>
+                            </div>
+                            <div className="text-center p-3 bg-muted/30 rounded-lg">
+                              <TrendingDown className="size-4 text-red-600 mx-auto mb-1" />
+                              <p className="text-[10px] text-muted-foreground">إجمالي المصاريف</p>
+                              <p className="text-sm font-bold text-red-700 dark:text-red-300">{formatCurrency(rData.summary?.totalExpense || 0)}</p>
+                            </div>
+                            <div className="text-center p-3 bg-muted/30 rounded-lg">
+                              <DollarSign className="size-4 text-amber-600 mx-auto mb-1" />
+                              <p className="text-[10px] text-muted-foreground">صافي الربح</p>
+                              <p className="text-sm font-bold text-amber-700 dark:text-amber-300">{formatCurrency(rData.summary?.netProfit || 0)}</p>
+                            </div>
+                          </div>
+
+                          {/* Stamp */}
+                          <div className="text-center">
+                            <div className="inline-block border-2 border-purple-400 dark:border-purple-600 rounded-xl px-6 py-3 rotate-[-3deg]">
+                              <p className="text-xs text-muted-foreground">منصة FACT</p>
+                              <p className="text-sm font-bold text-purple-700 dark:text-purple-300">معتمد رسمياً</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Compliance Report */}
+                    {rType === 'compliance' && (
+                      <>
+                        {/* Farm Info */}
+                        <div className={`${colors.bg} rounded-xl p-4 border ${colors.border} mb-4`}>
+                          <div className="flex items-center gap-3">
+                            <MapPin className={`size-5 ${colors.text}`} />
+                            <div>
+                              <p className="font-bold">{rData.farm?.name}</p>
+                              <p className="text-xs text-muted-foreground">{rData.farm?.wilaya} • {rData.farm?.area} هكتار</p>
+                              {rData.farm?.contractRef && (
+                                <p className="text-xs text-muted-foreground">رقم العقد: {rData.farm.contractRef}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Compliance Checklist */}
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-bold flex items-center gap-2">
+                            <Shield className="size-4 text-rose-600" />
+                            قائمة الامتثال
+                          </h3>
+                          {[
+                            { label: 'تسجيل العمليات المالية', passed: rData.hasRecords, detail: rData.recordCount > 0 ? `${rData.recordCount} عملية مسجلة` : 'لا توجد عمليات' },
+                            { label: 'إدارة المخزون', passed: rData.hasInventory, detail: rData.inventoryCount > 0 ? `${rData.inventoryCount} صنف في المخزون` : 'لا يوجد مخزون' },
+                            { label: 'تعدد بنود المداخيل', passed: rData.recordCount >= 3, detail: 'يجب تسجيل 3 عمليات على الأقل' },
+                            { label: 'وجود عقد مرجعي', passed: !!rData.farm?.contractRef, detail: rData.farm?.contractRef ? `العقد: ${rData.farm.contractRef}` : 'لا يوجد عقد' },
+                          ].map((item, idx) => (
+                            <div key={idx} className={`flex items-center justify-between p-4 rounded-xl border ${
+                              item.passed
+                                ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+                                : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+                            }`}>
+                              <div className="flex items-center gap-3">
+                                {item.passed
+                                  ? <CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
+                                  : <XCircle className="size-5 text-red-600 dark:text-red-400" />
+                                }
+                                <div>
+                                  <p className="text-sm font-bold">{item.label}</p>
+                                  <p className="text-xs text-muted-foreground">{item.detail}</p>
+                                </div>
+                              </div>
+                              <Badge variant={item.passed ? 'default' : 'destructive'} className={item.passed ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100' : ''}>
+                                {item.passed ? 'ممتثل' : 'غير ممتثل'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Compliance Score */}
+                        <div className={`${colors.bg} rounded-xl p-4 border ${colors.border} mt-4`}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm">درجة الامتثال الإجمالية</span>
+                            <span className={`text-2xl font-black ${colors.text}`}>
+                              {Math.round(
+                                [rData.hasRecords, rData.hasInventory, rData.recordCount >= 3, !!rData.farm?.contractRef].filter(Boolean).length / 4 * 100
+                              )}%
+                            </span>
+                          </div>
+                          <Progress value={Math.round(
+                            [rData.hasRecords, rData.hasInventory, rData.recordCount >= 3, !!rData.farm?.contractRef].filter(Boolean).length / 4 * 100
+                          )} className="h-3 mt-2" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )
+          })()}
+          <DialogHeader className="sr-only">
+            <DialogTitle>{selectedReport ? getReportTypeLabel(selectedReport.reportType) : 'تقرير'}</DialogTitle>
+            <DialogDescription>عرض تفاصيل التقرير</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
