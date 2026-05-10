@@ -19,7 +19,7 @@ import {
   Trash2, Eye, Droplets, Wrench, Truck, Users, FlaskConical, Landmark, Milk,
   Carrot, BarChart3, Shield, Award, CheckCircle2, XCircle, Printer, MapPin,
   Calendar, DollarSign, Percent, Leaf, BookOpen, Stamp, Download,
-  Activity, ArrowLeftRight, Database, Zap, Target, RefreshCw
+  Activity, ArrowLeftRight, Database, Zap, Target, RefreshCw, Edit2
 } from 'lucide-react'
 import { SeasonalBarChart, ProfitabilityGauge, CategoryPieChart, InventoryBarChart, MonthlyAreaChart, CashFlowChart, InventoryMovementChart, GovernanceRadarChart, InventoryTypeChart } from './charts'
 import { ReportViewer } from './report-viewer'
@@ -244,6 +244,8 @@ export function FarmerDashboard() {
 
   // Inventory dialog
   const [invDialog, setInvDialog] = useState(false)
+  const [invEditMode, setInvEditMode] = useState(false)
+  const [invEditId, setInvEditId] = useState<string | null>(null)
   const [invFilter, setInvFilter] = useState('all')
   const [invSearch, setInvSearch] = useState('')
   const defaultInvForm = { itemType: 'input', subCategory: '', itemName: '', unit: 'كيلو', qtyIn: '', qtyOut: '0', unitCost: '', unitPrice: '', alertThreshold: '', minimumStock: '', reorderQuantity: '', supplier: '', storageLocation: '', description: '', batchNumber: '', expiryDate: '' }
@@ -323,6 +325,98 @@ export function FarmerDashboard() {
         refreshData()
       } else {
         toast.error(data.error || 'حدث خطأ أثناء الإضافة')
+      }
+    } catch {
+      toast.error('حدث خطأ في الاتصال')
+    }
+  }
+
+  const handleEditInventory = (item: any) => {
+    setInvEditMode(true)
+    setInvEditId(item.id)
+    setInvForm({
+      itemType: item.itemType,
+      subCategory: item.subCategory || '',
+      itemName: item.itemName,
+      unit: item.unit,
+      qtyIn: String(item.qtyIn),
+      qtyOut: String(item.qtyOut),
+      unitCost: String(item.unitCost),
+      unitPrice: String(item.unitPrice),
+      alertThreshold: String(item.alertThreshold),
+      minimumStock: String(item.minimumStock),
+      reorderQuantity: String(item.reorderQuantity),
+      supplier: item.supplier || '',
+      storageLocation: item.storageLocation || '',
+      description: item.description || '',
+      batchNumber: item.batchNumber || '',
+      expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '',
+    })
+    setInvDialog(true)
+  }
+
+  const handleUpdateInventory = async () => {
+    if (!invEditId) return
+    if (!invForm.itemName) {
+      toast.error('يرجى إدخال اسم الصنف')
+      return
+    }
+    try {
+      const payload = {
+        itemType: invForm.itemType,
+        subCategory: invForm.subCategory || null,
+        itemName: invForm.itemName,
+        unit: invForm.unit || 'كيلو',
+        qtyIn: parseFloat(invForm.qtyIn) || 0,
+        qtyOut: parseFloat(invForm.qtyOut) || 0,
+        unitCost: parseFloat(invForm.unitCost) || 0,
+        unitPrice: parseFloat(invForm.unitPrice) || 0,
+        alertThreshold: parseFloat(invForm.alertThreshold) || 0,
+        minimumStock: parseFloat(invForm.minimumStock) || 0,
+        reorderQuantity: parseFloat(invForm.reorderQuantity) || 0,
+        supplier: invForm.supplier || null,
+        storageLocation: invForm.storageLocation || null,
+        description: invForm.description || null,
+        batchNumber: invForm.batchNumber || null,
+        expiryDate: invForm.expiryDate || null,
+      }
+      const res = await fetch(`/api/inventory/${invEditId}`, {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('تم تعديل المخزون بنجاح')
+        setInvDialog(false)
+        setInvEditMode(false)
+        setInvEditId(null)
+        setInvForm(defaultInvForm)
+        // Refresh inventory directly
+        const invRes = await fetch(`/api/inventory?farmId=${farm.id}&seasonId=${selectedSeason}`, { headers })
+        const invData = await invRes.json()
+        if (invData.success) setInventory(invData.data)
+        refreshData()
+      } else {
+        toast.error(data.error || 'حدث خطأ أثناء التعديل')
+      }
+    } catch {
+      toast.error('حدث خطأ في الاتصال')
+    }
+  }
+
+  const handleDeleteInventory = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الصنف من المخزون؟')) return
+    try {
+      const res = await fetch(`/api/inventory/${id}`, { method: 'DELETE', headers })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('تم حذف الصنف من المخزون')
+        // Remove from local state immediately
+        setInventory(prev => prev.filter((i: any) => i.id !== id))
+        refreshData()
+      } else {
+        toast.error(data.error || 'فشل حذف المخزون')
       }
     } catch {
       toast.error('حدث خطأ في الاتصال')
@@ -1238,16 +1332,28 @@ export function FarmerDashboard() {
               <motion.div key="inventory" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold">المخزون الفلاحي</h2>
-                  <Dialog open={invDialog} onOpenChange={setInvDialog}>
+                  <Dialog open={invDialog} onOpenChange={(open) => {
+                    setInvDialog(open)
+                    if (!open) {
+                      setInvEditMode(false)
+                      setInvEditId(null)
+                      setInvForm(defaultInvForm)
+                    }
+                  }}>
                     <DialogTrigger asChild>
-                      <Button className="golden-gradient text-white shadow-lg shadow-amber-500/20">
+                      <Button className="golden-gradient text-white shadow-lg shadow-amber-500/20" onClick={() => {
+                        setInvEditMode(false)
+                        setInvEditId(null)
+                        setInvForm(defaultInvForm)
+                      }}>
                         <Plus className="size-4 ml-1" />
                         إضافة مخزون
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle>إضافة مخزون جديد</DialogTitle>
+                        <DialogTitle>{invEditMode ? 'تعديل المخزون' : 'إضافة مخزون جديد'}</DialogTitle>
+                        <DialogDescription>{invEditMode ? 'قم بتعديل بيانات الصنف المخزوني' : 'أضف صنفاً جديداً إلى المخزون'}</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         {/* Type + SubCategory */}
@@ -1374,8 +1480,8 @@ export function FarmerDashboard() {
                           </div>
                         </div>
 
-                        <Button onClick={handleAddInventory} className="w-full h-12 green-gradient text-white font-bold">
-                          إضافة المخزون
+                        <Button onClick={invEditMode ? handleUpdateInventory : handleAddInventory} className={`w-full h-12 font-bold text-white ${invEditMode ? 'bg-gradient-to-l from-nature-purple to-nature-blue-red' : 'green-gradient'}`}>
+                          {invEditMode ? 'حفظ التعديلات' : 'إضافة المخزون'}
                         </Button>
                       </div>
                     </DialogContent>
@@ -1504,6 +1610,14 @@ export function FarmerDashboard() {
                                     <p className="text-sm font-bold">{formatCurrency(totalVal)}</p>
                                     {item.unitCost > 0 && <p className="text-[10px] text-muted-foreground">شراء: {new Intl.NumberFormat('en-US').format(item.unitCost)} دج/{item.unit}</p>}
                                     {item.unitPrice > 0 && <p className="text-[10px] text-nature-green">بيع: {new Intl.NumberFormat('en-US').format(item.unitPrice)} دج/{item.unit}</p>}
+                                    <div className="flex gap-1 mt-2">
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-nature-purple/10 hover:text-nature-purple" onClick={() => handleEditInventory(item)}>
+                                        <Edit2 className="size-3.5" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600" onClick={() => handleDeleteInventory(item.id)}>
+                                        <Trash2 className="size-3.5" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
