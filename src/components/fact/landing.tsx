@@ -1567,7 +1567,7 @@ function Footer() {
               المنصة من تطوير يحي مسعود
             </p>
             <p className="text-xs sm:text-sm font-semibold bg-gradient-to-l from-yellow-600 via-amber-500 to-yellow-700 bg-clip-text text-transparent leading-relaxed mt-1" dir="rtl">
-              طالب دكتوراه في جامعة الجزائر ٣ — مخبر استراتيجيات التحول الاقتصادي
+              طالب دكتوراه في جامعة الجزائر 3 — مخبر استراتيجيات التحول الاقتصادي
             </p>
           </div>
 
