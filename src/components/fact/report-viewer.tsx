@@ -16,6 +16,7 @@ import {
 import { useState } from 'react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { toast } from 'sonner'
 
 const CATEGORY_ICONS: Record<string, any> = {
   // Income categories
@@ -78,15 +79,33 @@ export function ReportViewer({ open, onOpenChange, report, reportData }: ReportV
     try {
       setIsExporting(true)
       const element = document.getElementById('report-export-content')
-      if (!element) return
+      if (!element) {
+        toast.error('عذراً، لم يتم العثور على محتوى التقرير.')
+        return
+      }
 
-      // Adjust styles temporarily for PDF generation if needed
-      const canvas = await html2canvas(element, {
+      toast.loading('جاري تجهيز ملف PDF...', { id: 'pdf-toast' })
+
+      // Create a clone to ensure full height is captured, bypassing ScrollArea restrictions
+      const clone = element.cloneNode(true) as HTMLElement
+      document.body.appendChild(clone)
+      clone.style.position = 'absolute'
+      clone.style.top = '-9999px'
+      clone.style.left = '-9999px'
+      clone.style.width = '1200px'
+      clone.style.height = 'auto'
+      clone.style.overflow = 'visible'
+      clone.style.backgroundColor = 'white'
+      clone.style.padding = '40px'
+
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         logging: false,
-        windowWidth: 1200, // force a desktop width to ensure layout doesn't break
+        windowWidth: 1200,
       })
+      
+      document.body.removeChild(clone)
       
       const imgData = canvas.toDataURL('image/jpeg', 1.0)
       const pdf = new jsPDF('p', 'mm', 'a4')
@@ -111,8 +130,10 @@ export function ReportViewer({ open, onOpenChange, report, reportData }: ReportV
 
       const filename = `FACT_${report.reportType}_${new Date(report.generatedAt).toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
       pdf.save(filename)
-    } catch (error) {
+      toast.success('تم تحميل التقرير بنجاح!', { id: 'pdf-toast' })
+    } catch (error: any) {
       console.error('PDF generation error:', error)
+      toast.error(`حدث خطأ أثناء توليد الـ PDF: ${error.message || 'حاول مرة أخرى'}`, { id: 'pdf-toast' })
     } finally {
       setIsExporting(false)
     }
