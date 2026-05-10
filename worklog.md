@@ -134,3 +134,47 @@ Stage Summary:
 - Deleting linked transactions reverses the inventory changes
 - UI clearly shows which transactions are linked to inventory with visual badges
 - Inventory items show their linked transactions for full traceability
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Redesign dashboard homepage and charts to be dynamic, consistent with operations, and reflect governance
+
+Work Log:
+- Completely rewrote Dashboard API (`/api/dashboard/route.ts`):
+  - Added inventory value calculation (balance × unitCost for all items)
+  - Added inventory by type aggregation with count, balance, and value
+  - Added inventory movement data grouped by subCategory
+  - Added inventory alerts (red/yellow status + needsReorder)
+  - Added linked transactions count (inventory-synced operations)
+  - Added income/expense trend vs previous season (% change)
+  - Added cash flow data (income, expense, net per month)
+  - Added new KPI: kpi09 (inventory turnover rate)
+  - Changed kpi05 from production cost to cost efficiency
+  - Added descriptions (desc) to all KPIs
+  - Improved governance index calculation with new weights
+  - Added revenue trend by top categories
+- Created 4 new chart components in `charts.tsx`:
+  - CashFlowChart: Combined bar (income/expense) + line (net cash flow) per month
+  - InventoryMovementChart: Horizontal bar chart showing qtyIn/qtyOut by subCategory
+  - GovernanceRadarChart: Spider/radar chart mapping all 8 KPIs to a 0-100 scale
+  - InventoryTypeChart: Bar chart showing inventory value by type (input, crop, etc.)
+  - Enhanced SeasonalBarChart: Now includes profitability line overlay
+  - All charts have polished tooltips with Arabic formatting
+- Completely redesigned the Home tab in farmer-dashboard.tsx:
+  - Summary cards now show trend indicators (vs previous season)
+  - New "Dynamic Status Bar" with 3 cards: inventory value, synced operations, alerts
+  - Governance KPIs consolidated into one card with radar gauge
+  - 7 dynamic chart sections (cash flow, radar, seasons, inventory movement, income pie, expense pie, inventory by type)
+  - Recent transactions show inventory sync badges
+  - Inventory alerts section with status colors and reorder badges
+  - All cards have gradient headers and hover animations
+  - Link to "View All" in recent transactions section
+
+Stage Summary:
+- Dashboard is now fully dynamic and reflects all platform operations
+- New governance radar chart provides visual overview of all KPIs
+- Cash flow chart shows monthly net flow with trend line
+- Inventory value, alerts, and sync indicators are prominently displayed
+- All data refreshes automatically when transactions change
+- Income/expense trends compared to previous season shown in summary cards

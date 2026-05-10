@@ -18,9 +18,10 @@ import {
   Plus, TrendingUp, TrendingDown, AlertTriangle, Wheat,
   Trash2, Eye, Droplets, Wrench, Truck, Users, FlaskConical, Landmark, Milk,
   Carrot, BarChart3, Shield, Award, CheckCircle2, XCircle, Printer, MapPin,
-  Calendar, DollarSign, Percent, Leaf, BookOpen, Stamp, Download
+  Calendar, DollarSign, Percent, Leaf, BookOpen, Stamp, Download,
+  Activity, ArrowLeftRight, Database, Zap, Target, RefreshCw
 } from 'lucide-react'
-import { SeasonalBarChart, ProfitabilityGauge, CategoryPieChart, InventoryBarChart, MonthlyAreaChart } from './charts'
+import { SeasonalBarChart, ProfitabilityGauge, CategoryPieChart, InventoryBarChart, MonthlyAreaChart, CashFlowChart, InventoryMovementChart, GovernanceRadarChart, InventoryTypeChart } from './charts'
 import { ReportViewer } from './report-viewer'
 import { toast } from 'sonner'
 import { useTheme } from 'next-themes'
@@ -29,14 +30,20 @@ interface DashboardData {
   farm: { id: string; name: string; areaHectares: number; locationWilaya: string }
   currentSeason: { id: string; seasonType: string; year: number } | null
   seasons: { id: string; seasonType: string; year: number }[]
-  kpis: { id: string; name: string; value: number; unit: string; type: string; weight: number }[]
-  summaries: { totalIncome: number; totalExpense: number; netProfit: number; profitabilityRate: number }
+  kpis: { id: string; name: string; value: number; unit: string; type: string; weight: number; desc?: string }[]
+  summaries: { totalIncome: number; totalExpense: number; netProfit: number; profitabilityRate: number; incomeTrend?: number; expenseTrend?: number }
   recentTransactions: any[]
   inventorySummary: any[]
-  monthlyData: { month: string; income: number; expense: number }[]
+  monthlyData: { month: string; income: number; expense: number; net: number }[]
   incomeByCategory: { name: string; value: number }[]
   expenseByCategory: { name: string; value: number }[]
   seasonComparison: { season: string; income: number; expense: number; profitability: number }[]
+  cashFlowData: { month: string; income: number; expense: number; net: number }[]
+  inventoryMovement: { category: string; qtyIn: number; qtyOut: number }[]
+  inventoryByType: { type: string; qtyIn: number; qtyOut: number; balance: number; value: number; count: number }[]
+  inventoryValue: number
+  inventoryAlerts: any[]
+  linkedTransactionsCount: number
 }
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -554,154 +561,323 @@ export function FarmerDashboard() {
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (
               <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
-                {/* Summary cards */}
+                {/* Dynamic Summary Cards with Trend Indicators */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   {[
-                    { label: 'إجمالي المداخيل', value: s?.totalIncome || 0, icon: TrendingUp, color: 'from-nature-green-dark to-green-600', shadow: 'shadow-green-500/20' },
-                    { label: 'إجمالي المصاريف', value: s?.totalExpense || 0, icon: TrendingDown, color: 'from-nature-rose to-red-700', shadow: 'shadow-rose-500/20' },
-                    { label: 'صافي الربح', value: s?.netProfit || 0, icon: Award, color: 'from-nature-golden to-yellow-600', shadow: 'shadow-amber-500/20' },
-                    { label: 'نسبة الربحية', value: s?.profitabilityRate || 0, icon: BarChart3, color: 'from-nature-purple to-nature-blue-red', shadow: 'shadow-purple-500/20', isPercent: true },
+                    { label: 'إجمالي المداخيل', value: s?.totalIncome || 0, icon: TrendingUp, color: 'from-nature-green-dark to-green-600', shadow: 'shadow-green-500/20', trend: s?.incomeTrend, trendLabel: 'عن الموسم السابق' },
+                    { label: 'إجمالي المصاريف', value: s?.totalExpense || 0, icon: TrendingDown, color: 'from-nature-rose to-red-700', shadow: 'shadow-rose-500/20', trend: s?.expenseTrend, trendLabel: 'عن الموسم السابق' },
+                    { label: 'صافي الربح', value: s?.netProfit || 0, icon: Award, color: 'from-nature-golden to-yellow-600', shadow: 'shadow-amber-500/20', trend: null, trendLabel: '' },
+                    { label: 'نسبة الربحية', value: s?.profitabilityRate || 0, icon: BarChart3, color: 'from-nature-purple to-nature-blue-red', shadow: 'shadow-purple-500/20', isPercent: true, trend: null, trendLabel: '' },
                   ].map((card, i) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                      <Card className={`border-0 shadow-xl ${card.shadow} overflow-hidden`}>
-                        <div className={`h-1 bg-gradient-to-l ${card.color}`} />
+                      <Card className={`border-0 shadow-xl ${card.shadow} overflow-hidden group hover:shadow-2xl transition-all duration-300`}>
+                        <div className={`h-1.5 bg-gradient-to-l ${card.color}`} />
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
-                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${card.color} flex items-center justify-center`}>
+                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
                               <card.icon className="size-4 text-white" />
                             </div>
                           </div>
                           <p className="text-2xl font-black">
                             {card.isPercent ? `${card.value.toFixed(1)}%` : formatCurrency(card.value)}
                           </p>
+                          {card.trend !== null && card.trend !== undefined && (
+                            <div className={`flex items-center gap-1 mt-1 text-xs ${card.trend >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {card.trend >= 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                              <span>{card.trend >= 0 ? '+' : ''}{card.trend.toFixed(1)}% {card.trendLabel}</span>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* KPIs */}
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <Shield className="size-5 text-nature-purple" />
-                  مؤشرات الحوكمة
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-                  {d?.kpis?.filter(k => k.id !== 'kpi08').map((kpi, i) => (
-                    <motion.div key={kpi.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}>
-                      <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
-                        <CardContent className="p-4">
-                          <p className="text-xs text-muted-foreground mb-2 font-medium">{kpi.name}</p>
+                {/* Dynamic Status Bar - Inventory Value + Linked Ops + Alerts */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}>
+                    <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all">
+                      <div className="h-1 bg-gradient-to-l from-amber-500 to-amber-600" />
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">قيمة المخزون الحالي</p>
+                            <p className="text-xl font-black text-amber-700 dark:text-amber-400">{formatCurrency(d?.inventoryValue || 0)}</p>
+                          </div>
+                          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <Database className="size-5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                        </div>
+                        {d?.inventoryByType && d.inventoryByType.length > 0 && (
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            {d.inventoryByType.slice(0, 4).map(it => (
+                              <Badge key={it.type} variant="outline" className="text-[9px]">
+                                {ITEM_TYPE_LABELS[it.type] || it.type}: {it.count}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.25 }}>
+                    <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all">
+                      <div className="h-1 bg-gradient-to-l from-nature-green-dark to-green-600" />
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">عمليات متزامنة مع المخزون</p>
+                            <p className="text-xl font-black text-nature-green">{d?.linkedTransactionsCount || 0}</p>
+                          </div>
+                          <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <ArrowLeftRight className="size-5 text-green-600 dark:text-green-400" />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                          <Zap className="size-3 text-nature-green" />
+                          البيع يخصم والشراء يضيف تلقائياً
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}>
+                    <Card className={`border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all ${(d?.inventoryAlerts?.length || 0) > 0 ? 'ring-1 ring-red-200 dark:ring-red-800' : ''}`}>
+                      <div className={`h-1 bg-gradient-to-l ${(d?.inventoryAlerts?.length || 0) > 0 ? 'from-red-500 to-red-600' : 'from-green-500 to-green-600'}`} />
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">تنبيهات المخزون</p>
+                            <p className={`text-xl font-black ${(d?.inventoryAlerts?.length || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                              {d?.inventoryAlerts?.length || 0}
+                            </p>
+                          </div>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${(d?.inventoryAlerts?.length || 0) > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-green-100 dark:bg-green-900/30'}`}>
+                            {(d?.inventoryAlerts?.length || 0) > 0
+                              ? <AlertTriangle className="size-5 text-red-600 dark:text-red-400" />
+                              : <CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
+                            }
+                          </div>
+                        </div>
+                        {(d?.inventoryAlerts?.length || 0) > 0 && (
+                          <p className="text-[10px] text-red-600 dark:text-red-400 mt-2">
+                            أصناف تحتاج انتباه أو إعادة توريد
+                          </p>
+                        )}
+                        {(d?.inventoryAlerts?.length || 0) === 0 && (
+                          <p className="text-[10px] text-green-600 dark:text-green-400 mt-2">
+                            جميع الأصناف في مستوى جيد
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </div>
+
+                {/* Governance KPIs */}
+                <Card className="border-0 shadow-xl mb-6 overflow-hidden">
+                  <div className="h-2 purple-gradient" />
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                          <Shield className="size-5 text-nature-purple" />
+                          مؤشرات الحوكمة
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">مؤشرات أداء شاملة تعكس صحة الإنتاج الفلاحي</p>
+                      </div>
+                      {d?.kpis?.find(k => k.id === 'kpi08') && (
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground mb-1">مؤشر الحوكمة الشامل</p>
+                            <ProfitabilityGauge value={d.kpis.find(k => k.id === 'kpi08')!.value} label="" size={120} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {d?.kpis?.filter(k => k.id !== 'kpi08').map((kpi, i) => (
+                        <motion.div key={kpi.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
+                          className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-1 mb-1">
+                            <Target className="size-3 text-nature-purple" />
+                            <p className="text-[10px] text-muted-foreground font-medium">{kpi.name}</p>
+                          </div>
                           {kpi.type === 'gauge' && (
                             <div className="flex justify-center">
-                              <ProfitabilityGauge value={kpi.value} label="" size={120} />
+                              <ProfitabilityGauge value={kpi.value} label="" size={80} />
                             </div>
                           )}
                           {kpi.type === 'progress' && (
                             <div>
-                              <p className={`text-2xl font-black ${getKpiColor(kpi.value)}`}>
+                              <p className={`text-lg font-black ${getKpiColor(kpi.value)}`}>
                                 {Math.round(kpi.value)}%
                               </p>
-                              <Progress value={Math.min(100, kpi.value)} className={`h-2 mt-2 ${getKpiBg(kpi.value)}`} />
+                              <Progress value={Math.min(100, kpi.value)} className={`h-1.5 mt-1 ${getKpiBg(kpi.value)}`} />
                             </div>
                           )}
                           {kpi.type === 'number' && (
-                            <p className="text-2xl font-black">
+                            <p className="text-lg font-black">
                               {new Intl.NumberFormat('en-US').format(Math.round(kpi.value))}{' '}
-                              <span className="text-xs text-muted-foreground font-normal">{kpi.unit}</span>
+                              <span className="text-[10px] text-muted-foreground font-normal">{kpi.unit}</span>
                             </p>
                           )}
                           {kpi.type === 'trend' && (
-                            <div className="flex items-center gap-2">
-                              <p className={`text-2xl font-black ${kpi.value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <div className="flex items-center gap-1">
+                              <p className={`text-lg font-black ${kpi.value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {kpi.value >= 0 ? '+' : ''}{kpi.value.toFixed(1)}
                               </p>
-                              {kpi.value >= 0 ? <TrendingUp className="size-5 text-green-500" /> : <TrendingDown className="size-5 text-red-500" />}
+                              {kpi.value >= 0 ? <TrendingUp className="size-4 text-green-500" /> : <TrendingDown className="size-4 text-red-500" />}
                             </div>
                           )}
                           {kpi.type === 'icons' && (
-                            <div className="flex gap-1">
-                              {[1, 2, 3].map(n => (
-                                <div key={n} className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                  n <= kpi.value ? 'bg-green-100 dark:bg-green-900/30' : 'bg-muted'
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: Math.min(5, parseInt(kpi.unit.replace('/', '')) || 16) }, (_, n) => (
+                                <div key={n} className={`w-5 h-5 rounded flex items-center justify-center ${
+                                  n < kpi.value ? 'bg-green-100 dark:bg-green-900/30' : 'bg-muted'
                                 }`}>
-                                  <Wheat className={`size-4 ${n <= kpi.value ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
+                                  <Wheat className={`size-3 ${n < kpi.value ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
                                 </div>
                               ))}
                             </div>
                           )}
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
+                          {kpi.desc && <p className="text-[9px] text-muted-foreground mt-1">{kpi.desc}</p>}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                {/* Governance Index */}
-                {d?.kpis?.find(k => k.id === 'kpi08') && (
-                  <Card className="border-0 shadow-xl mb-6 overflow-hidden">
-                    <div className="h-2 purple-gradient" />
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-bold mb-1">مؤشر الحوكمة الشامل</h3>
-                          <p className="text-sm text-muted-foreground">متوسط مرجح لجميع المؤشرات</p>
-                        </div>
-                        <ProfitabilityGauge value={d.kpis.find(k => k.id === 'kpi08')!.value} label="" size={160} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Charts */}
+                {/* Charts Section - Dynamic and Governance-Aligned */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  {d?.monthlyData && d.monthlyData.length > 0 && (
-                    <Card className="border-0 shadow-lg">
+                  {/* Cash Flow Chart - Dynamic */}
+                  {d?.cashFlowData && d.cashFlowData.length > 0 && (
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 bg-gradient-to-l from-nature-purple to-nature-blue-red" />
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold">المداخيل والمصاريف الشهرية</CardTitle>
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <Activity className="size-4 text-nature-purple" />
+                          التدفق النقدي الشهري
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <MonthlyAreaChart data={d.monthlyData} />
+                        <CashFlowChart data={d.cashFlowData} />
                       </CardContent>
                     </Card>
                   )}
-                  {d?.seasonComparison && d.seasonComparison.length > 0 && (
-                    <Card className="border-0 shadow-lg">
+
+                  {/* Governance Radar */}
+                  {d?.kpis && d.kpis.length > 0 && (
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 purple-gradient" />
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold">مقارنة المواسم</CardTitle>
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <Shield className="size-4 text-nature-purple" />
+                          رادار الحوكمة
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <GovernanceRadarChart kpis={d.kpis} />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Season Comparison */}
+                  {d?.seasonComparison && d.seasonComparison.length > 0 && (
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 bg-gradient-to-l from-nature-green-dark to-green-600" />
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <BarChart3 className="size-4 text-nature-green" />
+                          مقارنة المواسم
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <SeasonalBarChart data={d.seasonComparison} />
                       </CardContent>
                     </Card>
                   )}
-                  {d?.incomeByCategory && d.incomeByCategory.length > 0 && (
-                    <Card className="border-0 shadow-lg">
+
+                  {/* Inventory Movement Chart */}
+                  {d?.inventoryMovement && d.inventoryMovement.length > 0 && (
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 bg-gradient-to-l from-amber-500 to-amber-600" />
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold">توزيع المداخيل</CardTitle>
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <ArrowLeftRight className="size-4 text-amber-600" />
+                          حركة المخزون
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <InventoryMovementChart data={d.inventoryMovement} />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Income Distribution */}
+                  {d?.incomeByCategory && d.incomeByCategory.length > 0 && (
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 bg-gradient-to-l from-nature-green-dark to-green-600" />
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <TrendingUp className="size-4 text-nature-green" />
+                          توزيع المداخيل
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <CategoryPieChart data={d.incomeByCategory} />
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* Expense Distribution */}
                   {d?.expenseByCategory && d.expenseByCategory.length > 0 && (
-                    <Card className="border-0 shadow-lg">
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 bg-gradient-to-l from-nature-rose to-red-700" />
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold">توزيع المصاريف</CardTitle>
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <TrendingDown className="size-4 text-nature-rose" />
+                          توزيع المصاريف
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <CategoryPieChart data={d.expenseByCategory} />
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* Inventory by Type Chart */}
+                  {d?.inventoryByType && d.inventoryByType.length > 0 && (
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-1 bg-gradient-to-l from-amber-600 to-amber-700" />
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <Database className="size-4 text-amber-600" />
+                          قيمة المخزون حسب النوع
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <InventoryTypeChart data={d.inventoryByType} />
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
 
-                {/* Recent transactions */}
-                <Card className="border-0 shadow-lg">
+                {/* Recent Transactions with Inventory Sync Indicators */}
+                <Card className="border-0 shadow-lg overflow-hidden mb-6">
+                  <div className="h-1 bg-gradient-to-l from-nature-green-dark to-nature-purple" />
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <ArrowUpDown className="size-4 text-nature-green" />
-                      آخر العمليات
+                    <CardTitle className="text-sm font-bold flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <ArrowUpDown className="size-4 text-nature-green" />
+                        آخر العمليات
+                      </span>
+                      <button onClick={() => setActiveTab('transactions')} className="text-xs text-nature-green hover:underline">
+                        عرض الكل ←
+                      </button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -710,14 +886,25 @@ export function FarmerDashboard() {
                         {d.recentTransactions.map((t: any) => (
                           <div key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                                 t.type === 'income' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
                               }`}>
                                 {t.type === 'income' ? <TrendingUp className="size-4 text-green-600 dark:text-green-400" /> : <TrendingDown className="size-4 text-red-600 dark:text-red-400" />}
                               </div>
                               <div>
-                                <p className="text-sm font-medium">{t.category?.nameAr || 'أخرى'}</p>
-                                <p className="text-xs text-muted-foreground">{t.note || new Date(t.txnDate).toLocaleDateString('fr-FR')}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium">{t.category?.nameAr || 'أخرى'}</p>
+                                  {t.linkedInventoryId && (
+                                    <Badge className="text-[8px] px-1 py-0 bg-nature-green/10 text-nature-green border-nature-green/20 flex items-center gap-0.5">
+                                      <Package className="size-2" />
+                                      {t.type === 'income' ? 'خصم' : 'إضافة'}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {t.note || new Date(t.txnDate).toLocaleDateString('fr-FR')}
+                                  {t.quantity > 0 && <span className="ml-2">×{new Intl.NumberFormat('en-US').format(t.quantity)}</span>}
+                                </p>
                               </div>
                             </div>
                             <p className={`text-sm font-bold ${t.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -732,21 +919,36 @@ export function FarmerDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Inventory alerts */}
-                {d?.inventorySummary && d.inventorySummary.filter((i: any) => i.status === 'red').length > 0 && (
-                  <Card className="border-0 shadow-lg mt-6 border-r-4 border-r-red-500">
+                {/* Inventory Alerts */}
+                {d?.inventoryAlerts && d.inventoryAlerts.length > 0 && (
+                  <Card className="border-0 shadow-lg border-r-4 border-r-red-500 overflow-hidden">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-600">
                         <AlertTriangle className="size-4" />
-                        تنبيهات المخزون
+                        تنبيهات المخزون ({d.inventoryAlerts.length})
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2">
-                        {d.inventorySummary.filter((i: any) => i.status === 'red').map((item: any) => (
-                          <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-red-50 dark:bg-red-900/20">
-                            <span className="text-sm font-medium">{item.itemName}</span>
-                            <span className="text-xs text-red-600 dark:text-red-400">الرصيد: {item.qtyBalance} {item.unit}</span>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {d.inventoryAlerts.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${item.status === 'red' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                              <div>
+                                <span className="text-sm font-medium">{item.itemName}</span>
+                                <span className="text-xs text-muted-foreground mr-2">({ITEM_TYPE_LABELS[item.itemType] || item.itemType})</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {item.needsReorder && (
+                                <Badge className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                                  يحتاج إعادة طلب
+                                </Badge>
+                              )}
+                              <span className="text-xs text-red-600 dark:text-red-400 font-bold">
+                                الرصيد: {new Intl.NumberFormat('en-US').format(item.qtyBalance)} {item.unit}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
