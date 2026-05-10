@@ -99,6 +99,7 @@ export function FarmerDashboard() {
   const [reportViewerOpen, setReportViewerOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [selectedReportData, setSelectedReportData] = useState<any>(null)
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null)
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -478,46 +479,26 @@ export function FarmerDashboard() {
     }
   }
 
-  const handleExportPDF = async (reportId?: string) => {
-    const targetReportId = reportId || selectedReport?.id
-    if (!targetReportId) return
+  const handleDeleteReportConfirm = async () => {
+    if (!reportToDelete) return
     try {
-      toast.loading('جاري إنشاء ملف PDF...')
-      const res = await fetch('/api/reports/pdf', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId: targetReportId }),
+      toast.loading('جاري الحذف...')
+      const res = await fetch(`/api/reports/${reportToDelete}`, {
+        method: 'DELETE',
+        headers
       })
-      // Get filename from header
-      const filename = res.headers.get('X-Filename') || `FACT_report.pdf`
-      // Get PDF as binary blob
-      const blob = await res.blob()
-      if (blob.type === 'application/pdf') {
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = filename
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-        toast.dismiss()
-        toast.success('تم تحميل التقرير بنجاح')
+      const data = await res.json()
+      toast.dismiss()
+      if (data.success) {
+        toast.success('تم حذف التقرير بنجاح')
+        setReports(reports.filter((r: any) => r.id !== reportToDelete))
+        setReportToDelete(null)
       } else {
-        // Fallback: try JSON error
-        const text = await blob.text()
-        try {
-          const data = JSON.parse(text)
-          toast.dismiss()
-          toast.error(data.error || 'حدث خطأ أثناء إنشاء ملف PDF')
-        } catch {
-          toast.dismiss()
-          toast.error('حدث خطأ أثناء إنشاء ملف PDF')
-        }
+        toast.error(data.error || 'حدث خطأ أثناء الحذف')
       }
     } catch (err) {
       toast.dismiss()
-      console.error('PDF export error:', err)
+      console.error(err)
       toast.error('حدث خطأ في الاتصال')
     }
   }
@@ -1687,8 +1668,8 @@ export function FarmerDashboard() {
                               <Button variant="ghost" size="sm" onClick={() => handleViewReport(r)} className="hover:bg-nature-green/10 hover:text-nature-green">
                                 <Eye className="size-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleExportPDF(r.id)} className="hover:bg-nature-golden/10 hover:text-nature-golden">
-                                <Download className="size-4" />
+                              <Button variant="ghost" size="sm" onClick={() => setReportToDelete(r.id)} className="hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600">
+                                <Trash2 className="size-4" />
                               </Button>
                             </div>
                           </div>
@@ -1711,8 +1692,32 @@ export function FarmerDashboard() {
         onOpenChange={setReportViewerOpen}
         report={selectedReport}
         reportData={selectedReportData}
-        onExportPDF={handleExportPDF}
       />
+
+      {/* Delete Report Confirmation Dialog */}
+      <Dialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="size-5" />
+              حذف التقرير
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              هل أنت متأكد من رغبتك في حذف هذا التقرير نهائياً؟
+              <br/>
+              لا يمكن التراجع عن هذا الإجراء.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setReportToDelete(null)}>
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteReportConfirm}>
+              تأكيد الحذف
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

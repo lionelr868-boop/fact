@@ -11,8 +11,11 @@ import {
   BarChart3, Shield, Award, CheckCircle2, XCircle, Printer, MapPin,
   Calendar, DollarSign, Percent, BookOpen, Stamp, Download,
   Sprout, Carrot, Milk, Landmark, FlaskConical, Droplets, Users, Truck, Wrench, Plus, Leaf, Package,
-  Info, Lightbulb, ArrowLeft, ClipboardCheck, Gauge, FileText, Clock, Target
+  Info, Lightbulb, ArrowLeft, ClipboardCheck, Gauge, FileText, Clock, Target, Loader2
 } from 'lucide-react'
+import { useState } from 'react'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
 const CATEGORY_ICONS: Record<string, any> = {
   // Income categories
@@ -66,10 +69,54 @@ interface ReportViewerProps {
   onOpenChange: (open: boolean) => void
   report: any
   reportData: any
-  onExportPDF: () => void
 }
 
-export function ReportViewer({ open, onOpenChange, report, reportData, onExportPDF }: ReportViewerProps) {
+export function ReportViewer({ open, onOpenChange, report, reportData }: ReportViewerProps) {
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true)
+      const element = document.getElementById('report-export-content')
+      if (!element) return
+
+      // Adjust styles temporarily for PDF generation if needed
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: 1200, // force a desktop width to ensure layout doesn't break
+      })
+      
+      const imgData = canvas.toDataURL('image/jpeg', 1.0)
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      
+      let heightLeft = pdfHeight
+      let position = 0
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight)
+      heightLeft -= pdf.internal.pageSize.getHeight()
+
+      // Add subsequent pages if needed
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight)
+        heightLeft -= pdf.internal.pageSize.getHeight()
+      }
+
+      const filename = `FACT_${report.reportType}_${new Date(report.generatedAt).toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
+      pdf.save(filename)
+    } catch (error) {
+      console.error('PDF generation error:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
   if (!report || !reportData) return null
 
   const rData = reportData
@@ -121,16 +168,18 @@ export function ReportViewer({ open, onOpenChange, report, reportData, onExportP
                   variant="ghost"
                   size="lg"
                   className="text-white hover:bg-white/20 text-xl px-6 py-4"
-                  onClick={onExportPDF}
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
                 >
-                  <Download className="size-6 ml-3" />
-                  تحميل PDF
+                  {isExporting ? <Loader2 className="size-6 ml-3 animate-spin" /> : <Download className="size-6 ml-3" />}
+                  {isExporting ? 'جاري التحميل...' : 'تحميل PDF'}
                 </Button>
                 <Button
                   variant="ghost"
                   size="lg"
                   className="text-white hover:bg-white/20 text-xl px-6 py-4"
                   onClick={() => window.print()}
+                  disabled={isExporting}
                 >
                   <Printer className="size-6 ml-3" />
                   طباعة
@@ -141,7 +190,7 @@ export function ReportViewer({ open, onOpenChange, report, reportData, onExportP
 
           {/* Report content */}
           <ScrollArea className="flex-1 overflow-auto">
-            <div className="p-10 space-y-12">
+            <div id="report-export-content" className="p-10 space-y-12 bg-background">
 
               {/* ====== Seasonal Account Report ====== */}
               {rType === 'seasonal_account' && (
