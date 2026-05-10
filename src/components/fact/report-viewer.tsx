@@ -12,6 +12,7 @@ import {
   Calendar, DollarSign, Percent, BookOpen, Stamp, Download,
   Sprout, Carrot, Milk, Landmark, FlaskConical, Droplets, Users, Truck, Wrench, Plus, Leaf, Package,
   Info, Lightbulb, ArrowLeft, ClipboardCheck, Gauge, FileText, Clock, Target, Loader2
+} from 'lucide-react'
 import { useState } from 'react'
 import { toJpeg } from 'html-to-image'
 import { jsPDF } from 'jspdf'
