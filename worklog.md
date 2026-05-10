@@ -95,3 +95,42 @@ Stage Summary:
 - New itemTypes (feed, medication, equipment) are now represented in seed data
 - subCategory values align with the specification per itemType
 - Database NOT re-seeded (existing farmers preserved); new data applies to future farmer creation only
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Make inventories dynamic with operations - selling decreases inventory, buying increases inventory, deletion reverses changes
+
+Work Log:
+- Updated Transaction POST API (`/api/transactions/route.ts`):
+  - Changed from income-only inventory sync to bidirectional sync
+  - Income (selling) → decreases inventory (increases qtyOut, recalculates qtyBalance)
+  - Expense (buying supplies) → increases inventory (increases qtyIn, recalculates qtyBalance, updates lastRestocked)
+  - Both types validate the linked inventory belongs to the same farm
+  - Income still validates that quantity doesn't exceed available balance
+- Updated Transaction DELETE API (`/api/transactions/[id]/route.ts`):
+  - When deleting a linked income transaction → reverses deduction (decreases qtyOut)
+  - When deleting a linked expense transaction → reverses addition (decreases qtyIn)
+  - Uses Math.max(0, ...) to prevent negative values
+- Updated Farmer Dashboard UI (`/components/fact/farmer-dashboard.tsx`):
+  - Changed inventory linking from income-only to both income AND expense
+  - For income (selling): shows items with balance > 0, auto-fills selling price (unitPrice)
+  - For expense (buying): shows input/feed/medication/equipment items, auto-fills purchase price (unitCost)
+  - Added visual indicator: green sync message explaining what will happen
+  - Added inventory sync badge in transaction list showing "خصم مخزون" (deduction) or "إضافة مخزون" (addition)
+  - Added quantity display in transaction list for linked transactions
+  - Updated inventory display to show linked transactions under each item
+  - Added "آخر توريد" (last restocked) display in inventory items
+  - Enhanced number formatting with Intl.NumberFormat for all quantities
+  - Color-coded qtyIn (blue) and qtyOut (red) in inventory display
+  - Balance now shows green when healthy, red when below threshold
+  - Updated toast messages to explain the sync action
+- Updated handleDeleteTransaction to refresh inventory when a linked transaction is deleted
+
+Stage Summary:
+- Operations and inventory are now fully dynamic and bidirectional
+- Selling (income) automatically reduces inventory
+- Buying (expense for inputs/feed/medication/equipment) automatically increases inventory
+- Deleting linked transactions reverses the inventory changes
+- UI clearly shows which transactions are linked to inventory with visual badges
+- Inventory items show their linked transactions for full traceability

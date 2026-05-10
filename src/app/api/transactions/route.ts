@@ -158,8 +158,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Handle inventory auto-deduction for income transactions with linked inventory
-    if (type === 'income' && linkedInventoryId) {
+    // Handle inventory auto-sync for transactions with linked inventory
+    if (linkedInventoryId) {
       const inventoryItem = await db.inventory.findUnique({
         where: { id: linkedInventoryId },
       })
@@ -179,30 +179,47 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Check if quantity to deduct is more than available balance
-      const deductQuantity = finalQuantity || 0
-      if (deductQuantity > 0 && deductQuantity > inventoryItem.qtyBalance) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `الكمية المطلوبة (${deductQuantity}) تتجاوز الرصيد المتاح (${inventoryItem.qtyBalance})`,
-          },
-          { status: 400 }
-        )
-      }
+      const syncQuantity = finalQuantity || 0
 
-      // Update inventory: increase qtyOut, recalculate qtyBalance
-      if (deductQuantity > 0) {
-        const newQtyOut = inventoryItem.qtyOut + deductQuantity
-        const newQtyBalance = inventoryItem.qtyIn - newQtyOut
+      if (type === 'income') {
+        // Income (selling) → decrease inventory (increase qtyOut)
+        if (syncQuantity > 0 && syncQuantity > inventoryItem.qtyBalance) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `الكمية المطلوبة (${syncQuantity}) تتجاوز الرصيد المتاح (${inventoryItem.qtyBalance})`,
+            },
+            { status: 400 }
+          )
+        }
 
-        await db.inventory.update({
-          where: { id: linkedInventoryId },
-          data: {
-            qtyOut: newQtyOut,
-            qtyBalance: newQtyBalance,
-          },
-        })
+        if (syncQuantity > 0) {
+          const newQtyOut = inventoryItem.qtyOut + syncQuantity
+          const newQtyBalance = inventoryItem.qtyIn - newQtyOut
+
+          await db.inventory.update({
+            where: { id: linkedInventoryId },
+            data: {
+              qtyOut: newQtyOut,
+              qtyBalance: newQtyBalance,
+            },
+          })
+        }
+      } else if (type === 'expense') {
+        // Expense (buying supplies) → increase inventory (increase qtyIn)
+        if (syncQuantity > 0) {
+          const newQtyIn = inventoryItem.qtyIn + syncQuantity
+          const newQtyBalance = newQtyIn - inventoryItem.qtyOut
+
+          await db.inventory.update({
+            where: { id: linkedInventoryId },
+            data: {
+              qtyIn: newQtyIn,
+              qtyBalance: newQtyBalance,
+              lastRestocked: new Date(),
+            },
+          })
+        }
       }
     }
 

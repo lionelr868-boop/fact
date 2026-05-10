@@ -208,7 +208,12 @@ export function FarmerDashboard() {
       const data = await res.json()
       if (data.success) {
         const isLinked = !!txForm.linkedInventoryId
-        toast.success(isLinked ? 'تم إضافة العملية وتحديث المخزون بنجاح' : 'تم إضافة العملية بنجاح')
+        const syncMsg = isLinked
+          ? (txForm.type === 'income'
+            ? 'تم إضافة عملية البيع وخصم الكمية من المخزون تلقائياً'
+            : 'تم إضافة عملية الشراء وإضافة الكمية للمخزون تلقائياً')
+          : 'تم إضافة العملية بنجاح'
+        toast.success(syncMsg)
         setTxDialog(false)
         setTxForm(defaultTxForm)
         // Refresh transactions list directly
@@ -418,12 +423,21 @@ export function FarmerDashboard() {
 
   const handleDeleteTransaction = async (id: string) => {
     try {
+      // Find the transaction to check if it's linked to inventory
+      const txToDelete = transactions.find((t: any) => t.id === id)
       const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE', headers })
       const data = await res.json()
       if (data.success) {
-        toast.success('تم حذف العملية')
+        const wasLinked = !!txToDelete?.linkedInventoryId
+        toast.success(wasLinked ? 'تم حذف العملية وتحديث المخزون' : 'تم حذف العملية')
         // Remove from local state immediately
         setTransactions(prev => prev.filter(t => t.id !== id))
+        // Refresh inventory if transaction was linked
+        if (wasLinked && farm) {
+          const invRes = await fetch(`/api/inventory?farmId=${farm.id}&seasonId=${selectedSeason}`, { headers })
+          const invData = await invRes.json()
+          if (invData.success) setInventory(invData.data)
+        }
         refreshData()
       } else {
         toast.error(data.error || 'فشل حذف العملية')
@@ -802,43 +816,73 @@ export function FarmerDashboard() {
                           </Select>
                         </div>
 
-                        {/* Linked Inventory Item - only for income */}
-                        {txForm.type === 'income' && (
-                          <div className="space-y-2">
-                            <Label>صنف المخزون (اختياري)</Label>
-                            <Select
-                              value={txForm.linkedInventoryId}
-                              onValueChange={v => {
-                                if (v === '__none__') {
-                                  setTxForm({ ...txForm, linkedInventoryId: '', quantity: '', unitPrice: '', amount: '' })
+                        {/* Linked Inventory Item - for both income (selling) and expense (buying) */}
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Package className="size-3.5" />
+                            {txForm.type === 'income' ? 'صنف المخزون للبيع (اختياري)' : 'صنف المخزون للشراء (اختياري)'}
+                          </Label>
+                          <Select
+                            value={txForm.linkedInventoryId}
+                            onValueChange={v => {
+                              if (v === '__none__') {
+                                setTxForm({ ...txForm, linkedInventoryId: '', quantity: '', unitPrice: '', amount: '' })
+                              } else {
+                                const selectedItem = inventory.find((item: any) => item.id === v)
+                                if (selectedItem) {
+                                  // For income (selling): use selling price (unitPrice), for expense (buying): use purchase price (unitCost)
+                                  const priceToUse = txForm.type === 'income'
+                                    ? String(selectedItem.unitPrice || selectedItem.unitCost || '')
+                                    : String(selectedItem.unitCost || '')
+                                  const newAmount = txForm.quantity && priceToUse ? String(parseFloat(txForm.quantity) * parseFloat(priceToUse)) : ''
+                                  setTxForm({ ...txForm, linkedInventoryId: v, unitPrice: priceToUse, amount: newAmount })
                                 } else {
-                                  const selectedItem = inventory.find((item: any) => item.id === v)
-                                  if (selectedItem) {
-                                    const newUnitPrice = String(selectedItem.unitCost || '')
-                                    const newAmount = txForm.quantity && newUnitPrice ? String(parseFloat(txForm.quantity) * parseFloat(newUnitPrice)) : ''
-                                    setTxForm({ ...txForm, linkedInventoryId: v, unitPrice: newUnitPrice, amount: newAmount })
-                                  } else {
-                                    setTxForm({ ...txForm, linkedInventoryId: v })
-                                  }
+                                  setTxForm({ ...txForm, linkedInventoryId: v })
                                 }
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="اختر صنف المخزون" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">بدون ربط</SelectItem>
-                                {inventory
-                                  .filter((item: any) => item.qtyBalance > 0)
-                                  .map((item: any) => (
-                                    <SelectItem key={item.id} value={item.id}>
-                                      {item.itemName} (الرصيد: {item.qtyBalance} {item.unit})
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={txForm.type === 'income' ? 'اختر الصنف المباع' : 'اختر الصنف المشترى'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">بدون ربط بالمخزون</SelectItem>
+                              {inventory
+                                .filter((item: any) => {
+                                  if (txForm.type === 'income') {
+                                    // For selling: show items that have stock (crops, animal products, etc.)
+                                    return item.qtyBalance > 0
+                                  } else {
+                                    // For buying: show items that are inputs/supplies (seeds, feed, medication, etc.)
+                                    return ['input', 'feed', 'medication', 'equipment'].includes(item.itemType)
+                                  }
+                                })
+                                .map((item: any) => (
+                                  <SelectItem key={item.id} value={item.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-2 h-2 rounded-full ${
+                                        item.itemType === 'input' ? 'bg-blue-500' :
+                                        item.itemType === 'feed' ? 'bg-lime-500' :
+                                        item.itemType === 'medication' ? 'bg-rose-500' :
+                                        item.itemType === 'crop' ? 'bg-green-500' :
+                                        item.itemType === 'animal_product' ? 'bg-purple-500' :
+                                        'bg-amber-500'
+                                      }`} />
+                                      {item.itemName} ({txForm.type === 'income' ? `رصيد: ${item.qtyBalance}` : `شراء: ${item.unitCost} دج`}) {item.unit}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          {txForm.linkedInventoryId && (
+                            <p className="text-xs text-nature-green flex items-center gap-1">
+                              <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" /></svg>
+                              {txForm.type === 'income'
+                                ? 'سيتم خصم الكمية من المخزون تلقائياً'
+                                : 'سيتم إضافة الكمية إلى المخزون تلقائياً'}
+                            </p>
+                          )}
+                        </div>
 
                         {/* Quantity - when inventory item is selected */}
                         {txForm.linkedInventoryId && (
@@ -946,8 +990,19 @@ export function FarmerDashboard() {
                                   }
                                 </div>
                                 <div>
-                                  <p className="text-sm font-bold">{t.category?.nameAr || 'أخرى'}</p>
-                                  <p className="text-xs text-muted-foreground">{t.note || '—'} • {new Date(t.txnDate).toLocaleDateString('fr-FR')}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-bold">{t.category?.nameAr || 'أخرى'}</p>
+                                    {t.linkedInventoryId && (
+                                      <Badge className="text-[9px] px-1.5 py-0 bg-nature-green/10 text-nature-green dark:text-nature-green border-nature-green/20 flex items-center gap-1">
+                                        <Package className="size-2.5" />
+                                        {t.type === 'income' ? 'خصم مخزون' : 'إضافة مخزون'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {t.note || '—'} • {new Date(t.txnDate).toLocaleDateString('fr-FR')}
+                                    {t.quantity > 0 && ` • الكمية: ${new Intl.NumberFormat('en-US').format(t.quantity)}`}
+                                  </p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
@@ -1191,7 +1246,7 @@ export function FarmerDashboard() {
                                   <div className="flex items-start gap-3">
                                     <div className={`w-2 h-12 rounded-full mt-1 ${statusColor} shrink-0`} />
                                     <div className="space-y-1">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <p className="text-sm font-bold">{item.itemName}</p>
                                         <Badge className={`text-[9px] px-1.5 py-0 ${ITEM_TYPE_COLORS[item.itemType] || 'bg-muted text-muted-foreground'}`}>
                                           {ITEM_TYPE_LABELS[item.itemType] || item.itemType}
@@ -1206,14 +1261,41 @@ export function FarmerDashboard() {
                                         )}
                                       </div>
                                       <p className="text-xs text-muted-foreground">
-                                        داخل: {item.qtyIn} | خارج: {item.qtyOut} | الرصيد: <span className={balance <= (item.alertThreshold || 0) ? 'text-red-600 dark:text-red-400 font-bold' : 'font-bold'}>{balance}</span> {item.unit}
+                                        داخل: <span className="text-blue-600 dark:text-blue-400 font-medium">{new Intl.NumberFormat('en-US').format(item.qtyIn)}</span> | خارج: <span className="text-red-600 dark:text-red-400 font-medium">{new Intl.NumberFormat('en-US').format(item.qtyOut)}</span> | الرصيد: <span className={balance <= (item.alertThreshold || 0) ? 'text-red-600 dark:text-red-400 font-bold' : 'font-bold text-nature-green'}>{new Intl.NumberFormat('en-US').format(balance)}</span> {item.unit}
                                       </p>
                                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
                                         {item.supplier && <span>المورّد: {item.supplier}</span>}
                                         {item.storageLocation && <span>المكان: {item.storageLocation}</span>}
                                         {item.batchNumber && <span>الدفعة: {item.batchNumber}</span>}
                                         {item.expiryDate && <span className={new Date(item.expiryDate) < new Date() ? 'text-red-600 dark:text-red-400 font-bold' : ''}>الانتهاء: {new Date(item.expiryDate).toLocaleDateString('fr-FR')}</span>}
+                                        {item.lastRestocked && <span>آخر توريد: {new Date(item.lastRestocked).toLocaleDateString('fr-FR')}</span>}
                                       </div>
+                                      {/* Show linked transactions for this inventory item */}
+                                      {transactions.filter((t: any) => t.linkedInventoryId === item.id).length > 0 && (
+                                        <div className="mt-1 pt-1 border-t border-border/50">
+                                          <p className="text-[10px] text-nature-green font-medium mb-1">العمليات المرتبطة:</p>
+                                          <div className="space-y-0.5">
+                                            {transactions
+                                              .filter((t: any) => t.linkedInventoryId === item.id)
+                                              .slice(0, 3)
+                                              .map((t: any) => (
+                                                <div key={t.id} className="flex items-center gap-1 text-[10px]">
+                                                  {t.type === 'income'
+                                                    ? <TrendingUp className="size-2.5 text-green-500" />
+                                                    : <TrendingDown className="size-2.5 text-red-500" />
+                                                  }
+                                                  <span>{t.category?.nameAr || 'أخرى'}</span>
+                                                  <span className="text-muted-foreground">• {t.quantity > 0 ? `${new Intl.NumberFormat('en-US').format(t.quantity)} ${item.unit}` : formatCurrency(t.amount)}</span>
+                                                  <span className="text-muted-foreground">• {new Date(t.txnDate).toLocaleDateString('fr-FR')}</span>
+                                                </div>
+                                              ))
+                                            }
+                                            {transactions.filter((t: any) => t.linkedInventoryId === item.id).length > 3 && (
+                                              <p className="text-[9px] text-muted-foreground">+{transactions.filter((t: any) => t.linkedInventoryId === item.id).length - 3} عمليات أخرى</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="text-left shrink-0 space-y-1">

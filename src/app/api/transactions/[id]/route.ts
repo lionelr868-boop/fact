@@ -144,6 +144,45 @@ export async function DELETE(
 
     const seasonId = existing.seasonId
 
+    // Reverse inventory changes if transaction was linked to inventory
+    if (existing.linkedInventoryId) {
+      const inventoryItem = await db.inventory.findUnique({
+        where: { id: existing.linkedInventoryId },
+      })
+
+      if (inventoryItem) {
+        const reverseQuantity = existing.quantity || 0
+
+        if (reverseQuantity > 0) {
+          if (existing.type === 'income') {
+            // Was a sale → had decreased inventory → reverse by decreasing qtyOut
+            const newQtyOut = Math.max(0, inventoryItem.qtyOut - reverseQuantity)
+            const newQtyBalance = inventoryItem.qtyIn - newQtyOut
+
+            await db.inventory.update({
+              where: { id: existing.linkedInventoryId },
+              data: {
+                qtyOut: newQtyOut,
+                qtyBalance: newQtyBalance,
+              },
+            })
+          } else if (existing.type === 'expense') {
+            // Was a purchase → had increased inventory → reverse by decreasing qtyIn
+            const newQtyIn = Math.max(0, inventoryItem.qtyIn - reverseQuantity)
+            const newQtyBalance = newQtyIn - inventoryItem.qtyOut
+
+            await db.inventory.update({
+              where: { id: existing.linkedInventoryId },
+              data: {
+                qtyIn: newQtyIn,
+                qtyBalance: newQtyBalance,
+              },
+            })
+          }
+        }
+      }
+    }
+
     // Delete transaction
     await db.transaction.delete({ where: { id } })
 
