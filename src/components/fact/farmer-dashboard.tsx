@@ -1063,11 +1063,11 @@ export function FarmerDashboard() {
                         إضافة عملية
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
+                    <DialogContent className="max-w-md max-h-[85vh] overflow-hidden flex flex-col p-0">
+                      <DialogHeader className="p-6 pb-2 shrink-0">
                         <DialogTitle>إضافة عملية مالية</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4">
+                      <div className="space-y-4 overflow-y-auto flex-1 px-6 pb-6">
                         {/* Type selector */}
                         <div className="grid grid-cols-2 gap-3">
                           <button
