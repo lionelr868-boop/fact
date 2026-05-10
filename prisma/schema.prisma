@@ -17,6 +17,10 @@ model User {
   wilaya         String?
   areaHectares   Float?
   productionType String?
+  frozen         Boolean  @default(false) // Account freeze/suspend
+  frozenReason   String?  // Reason for freezing
+  frozenAt       DateTime? // When account was frozen
+  lastLoginAt    DateTime? // Last login timestamp
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   farm           Farm?

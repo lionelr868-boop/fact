@@ -38,6 +38,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if account is frozen
+    if (user.frozen) {
+      return NextResponse.json(
+        { success: false, error: `تم تجميد هذا الحساب${user.frozenReason ? ': ' + user.frozenReason : ''}. يرجى التواصل مع الإدارة.`, frozen: true },
+        { status: 403 }
+      )
+    }
+
+    // Update last login
+    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+
     // Generate token
     const token = generateToken(user.id)
 

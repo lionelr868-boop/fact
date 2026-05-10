@@ -40,6 +40,7 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
   })
 
   if (!user) return null
+  if (user.frozen) return null // Frozen accounts cannot access
 
   return {
     id: user.id,

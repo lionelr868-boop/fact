@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 export type AppView = 'landing' | 'login' | 'register' | 'farmer-dashboard' | 'admin-dashboard'
 export type FarmerTab = 'home' | 'transactions' | 'inventory' | 'reports'
-export type AdminTab = 'overview' | 'farms' | 'users' | 'reports'
+export type AdminTab = 'overview' | 'users' | 'farms' | 'transactions' | 'inventory' | 'categories' | 'reports'
 
 interface User {
   id: string
@@ -13,6 +13,8 @@ interface User {
   wilaya?: string
   areaHectares?: number
   productionType?: string
+  frozen?: boolean
+  frozenReason?: string | null
 }
 
 interface AppState {
