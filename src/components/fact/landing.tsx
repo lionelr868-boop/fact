@@ -6,9 +6,10 @@ import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useTheme } from 'next-themes'
 import {
   Sprout, BarChart3, FileText, Shield, ArrowLeft,
-  Tractor, Sun, ChartNoAxesCombined,
+  Tractor, Sun, ChartNoAxesCombined, Moon,
   TrendingUp, Package, Award, Gauge, LayoutDashboard,
   Users, MapPin, DollarSign, Activity, Star,
   CheckCircle, Zap, Menu, X,
@@ -97,8 +98,10 @@ function useCounter(target: number, duration = 2000) {
    ============================================================ */
 function Navbar() {
   const { setCurrentView } = useAppStore()
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const isDark = resolvedTheme === 'dark'
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50)
@@ -162,6 +165,15 @@ function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
+          <motion.button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            whileHover={{ scale: 1.1, rotate: 15 }}
+            whileTap={{ scale: 0.9 }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors bg-muted/50 hover:bg-muted text-foreground border border-border/50"
+            aria-label="تبديل الوضع"
+          >
+            {isDark ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-nature-purple" />}
+          </motion.button>
           <Button
             variant="ghost"
             onClick={() => setCurrentView('login')}
@@ -208,6 +220,15 @@ function Navbar() {
                 <Button onClick={() => { setMobileOpen(false); setCurrentView('register') }} className="flex-1 golden-gradient text-white">
                   إنشاء حساب
                 </Button>
+              </div>
+              <div className="flex justify-center pt-2">
+                <motion.button
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  whileTap={{ scale: 0.9 }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-colors bg-muted/50 hover:bg-muted text-foreground border border-border/50"
+                >
+                  {isDark ? <><Sun className="size-4 text-amber-500" /> الوضع النهاري</> : <><Moon className="size-4 text-nature-purple" /> الوضع الليلي</>}
+                </motion.button>
               </div>
             </div>
           </motion.div>
