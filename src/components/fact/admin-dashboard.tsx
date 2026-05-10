@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -18,11 +18,11 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Sprout, LayoutDashboard, Users, FileText, LogOut, Moon, Sun,
   TrendingUp, TrendingDown, MapPin, Ruler, Mail, Calendar,
-  BarChart3, Award, Shield, Activity, Globe, UserCheck, Search,
+  Award, Shield, Activity, Globe, UserCheck, Search,
   Snowflake, Unlock, Trash2, Eye, Package, Tags,
   ChevronLeft, ChevronRight, AlertTriangle, Warehouse,
   Phone, Leaf, Droplets, Wrench, Pill, Plus, Edit2,
-  DollarSign, BoxIcon,
+  DollarSign, BoxIcon, RefreshCw, Loader2,
 } from 'lucide-react'
 import { SeasonalBarChart, CategoryPieChart, CashFlowChart, InventoryTypeChart } from './charts'
 import { useTheme } from 'next-themes'
@@ -115,7 +115,7 @@ export function AdminDashboard() {
   const [dashData, setDashData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [, startTransition] = useTransition()
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // User management states
   const [users, setUsers] = useState<UserItem[]>([])
@@ -136,7 +136,6 @@ export function AdminDashboard() {
   const [transactions, setTransactions] = useState<TransactionItem[]>([])
   const [txLoading, setTxLoading] = useState(false)
   const [txTypeFilter, setTxTypeFilter] = useState('all')
-  const [txSearch, setTxSearch] = useState('')
 
   // Inventory management states
   const [inventories, setInventories] = useState<InventoryItem[]>([])
@@ -150,116 +149,145 @@ export function AdminDashboard() {
   const [catDialog, setCatDialog] = useState<{ open: boolean; mode: 'add' | 'edit'; cat: CategoryItem | null }>({ open: false, mode: 'add', cat: null })
   const [catForm, setCatForm] = useState({ type: 'income', nameAr: '', icon: 'Tag', color: '#6366f1', sortOrder: 0 })
 
-  const headers = { Authorization: `Bearer ${token}` }
-
-  // Refresh counter - increment to trigger data refetch
-  const [refreshKey, setRefreshKey] = useState(0)
-  const refresh = () => setRefreshKey(k => k + 1)
-
   // ============ DATA FETCHING ============
 
-  // Fetch dashboard data
+  const fetchDashboard = async () => {
+    if (!token) return
+    setIsRefreshing(true)
+    try {
+      const res = await fetch('/api/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (d.success) {
+        setDashData(d.data)
+        setLoading(false)
+      }
+    } catch (err) {
+      console.error('Dashboard fetch error:', err)
+      setLoading(false)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  const fetchUsers = async () => {
+    if (!token) return
+    setUsersLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (usersSearch) params.set('search', usersSearch)
+      if (usersRoleFilter !== 'all') params.set('role', usersRoleFilter)
+      if (usersFrozenFilter !== 'all') params.set('frozen', usersFrozenFilter)
+      const res = await fetch(`/api/admin/users?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (d.success) setUsers(d.data)
+    } catch (err) { console.error(err) }
+    finally { setUsersLoading(false) }
+  }
+
+  const fetchFarms = async () => {
+    if (!token) return
+    setFarmsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (farmsSearch) params.set('search', farmsSearch)
+      const res = await fetch(`/api/admin/farms?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (d.success) setFarms(d.data)
+    } catch (err) { console.error(err) }
+    finally { setFarmsLoading(false) }
+  }
+
+  const fetchTransactions = async () => {
+    if (!token) return
+    setTxLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (txTypeFilter !== 'all') params.set('type', txTypeFilter)
+      const res = await fetch(`/api/admin/transactions?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (d.success) setTransactions(d.data)
+    } catch (err) { console.error(err) }
+    finally { setTxLoading(false) }
+  }
+
+  const fetchInventory = async () => {
+    if (!token) return
+    setInvLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (invTypeFilter !== 'all') params.set('itemType', invTypeFilter)
+      if (invSearch) params.set('search', invSearch)
+      const res = await fetch(`/api/admin/inventory?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (d.success) setInventories(d.data)
+    } catch (err) { console.error(err) }
+    finally { setInvLoading(false) }
+  }
+
+  const fetchCategories = async () => {
+    if (!token) return
+    setCatLoading(true)
+    try {
+      const res = await fetch('/api/admin/categories', { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (d.success) setCategories(d.data)
+    } catch (err) { console.error(err) }
+    finally { setCatLoading(false) }
+  }
+
+  // ============ EFFECTS ============
+
+  // Initial dashboard fetch
   useEffect(() => {
-    const controller = new AbortController()
-    startTransition(() => setLoading(true))
-    fetch('/api/admin/dashboard', { headers, signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { if (d.success && !controller.signal.aborted) { startTransition(() => { setDashData(d.data); setLoading(false) }) } })
-      .catch(err => { if (err.name !== 'AbortError') { console.error(err); startTransition(() => setLoading(false)) } })
-    return () => controller.abort()
-  }, [refreshKey])
+    if (token) fetchDashboard()
+  }, [token])
 
-  // Fetch users when tab changes or filters change
+  // Fetch data when tab changes
   useEffect(() => {
-    if (adminTab !== 'users') return
-    const controller = new AbortController()
-    startTransition(() => setUsersLoading(true))
-    const params = new URLSearchParams()
-    if (usersSearch) params.set('search', usersSearch)
-    if (usersRoleFilter !== 'all') params.set('role', usersRoleFilter)
-    if (usersFrozenFilter !== 'all') params.set('frozen', usersFrozenFilter)
-    fetch(`/api/admin/users?${params}`, { headers, signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { if (d.success && !controller.signal.aborted) { startTransition(() => { setUsers(d.data); setUsersLoading(false) }) } })
-      .catch(err => { if (err.name !== 'AbortError') { console.error(err); startTransition(() => setUsersLoading(false)) } })
-    return () => controller.abort()
+    if (!token) return
+    if (adminTab === 'overview') fetchDashboard()
+    else if (adminTab === 'users') fetchUsers()
+    else if (adminTab === 'farms') fetchFarms()
+    else if (adminTab === 'transactions') fetchTransactions()
+    else if (adminTab === 'inventory') fetchInventory()
+    else if (adminTab === 'categories') fetchCategories()
+  }, [adminTab, token])
 
-  }, [adminTab, usersSearch, usersRoleFilter, usersFrozenFilter, refreshKey])
-
-  // Fetch farms
+  // Refetch users when filters change
   useEffect(() => {
-    if (adminTab !== 'farms') return
-    const controller = new AbortController()
-    startTransition(() => setFarmsLoading(true))
-    const params = new URLSearchParams()
-    if (farmsSearch) params.set('search', farmsSearch)
-    fetch(`/api/admin/farms?${params}`, { headers, signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { if (d.success && !controller.signal.aborted) { startTransition(() => { setFarms(d.data); setFarmsLoading(false) }) } })
-      .catch(err => { if (err.name !== 'AbortError') { console.error(err); startTransition(() => setFarmsLoading(false)) } })
-    return () => controller.abort()
+    if (adminTab === 'users' && token) fetchUsers()
+  }, [usersSearch, usersRoleFilter, usersFrozenFilter])
 
-  }, [adminTab, farmsSearch, refreshKey])
-
-  // Fetch transactions
+  // Refetch farms when search changes
   useEffect(() => {
-    if (adminTab !== 'transactions') return
-    const controller = new AbortController()
-    startTransition(() => setTxLoading(true))
-    const params = new URLSearchParams()
-    if (txTypeFilter !== 'all') params.set('type', txTypeFilter)
-    fetch(`/api/admin/transactions?${params}`, { headers, signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { if (d.success && !controller.signal.aborted) { startTransition(() => { setTransactions(d.data); setTxLoading(false) }) } })
-      .catch(err => { if (err.name !== 'AbortError') { console.error(err); startTransition(() => setTxLoading(false)) } })
-    return () => controller.abort()
+    if (adminTab === 'farms' && token) fetchFarms()
+  }, [farmsSearch])
 
-  }, [adminTab, txTypeFilter, refreshKey])
-
-  // Fetch inventory
+  // Refetch transactions when filter changes
   useEffect(() => {
-    if (adminTab !== 'inventory') return
-    const controller = new AbortController()
-    startTransition(() => setInvLoading(true))
-    const params = new URLSearchParams()
-    if (invTypeFilter !== 'all') params.set('itemType', invTypeFilter)
-    if (invSearch) params.set('search', invSearch)
-    fetch(`/api/admin/inventory?${params}`, { headers, signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { if (d.success && !controller.signal.aborted) { startTransition(() => { setInventories(d.data); setInvLoading(false) }) } })
-      .catch(err => { if (err.name !== 'AbortError') { console.error(err); startTransition(() => setInvLoading(false)) } })
-    return () => controller.abort()
+    if (adminTab === 'transactions' && token) fetchTransactions()
+  }, [txTypeFilter])
 
-  }, [adminTab, invTypeFilter, invSearch, refreshKey])
-
-  // Fetch categories
+  // Refetch inventory when filters change
   useEffect(() => {
-    if (adminTab !== 'categories') return
-    const controller = new AbortController()
-    startTransition(() => setCatLoading(true))
-    fetch('/api/admin/categories', { headers, signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { if (d.success && !controller.signal.aborted) { startTransition(() => { setCategories(d.data); setCatLoading(false) }) } })
-      .catch(err => { if (err.name !== 'AbortError') { console.error(err); startTransition(() => setCatLoading(false)) } })
-    return () => controller.abort()
+    if (adminTab === 'inventory' && token) fetchInventory()
+  }, [invTypeFilter, invSearch])
 
-  }, [adminTab, refreshKey])
-
-  // Auto-refresh dashboard every 30s
+  // Auto-refresh dashboard data every 30 seconds
   useEffect(() => {
-    if (adminTab !== 'overview') return
-    const interval = setInterval(() => setRefreshKey(k => k + 1), 30000)
+    if (adminTab !== 'overview' || !token) return
+    const interval = setInterval(fetchDashboard, 30000)
     return () => clearInterval(interval)
-  }, [adminTab])
+  }, [adminTab, token])
 
   // ============ ACTIONS ============
 
   const handleFreezeUser = async () => {
-    if (!freezeDialog.user) return
+    if (!freezeDialog.user || !token) return
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...headers },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           userId: freezeDialog.user.id,
           frozen: !freezeDialog.user.frozen,
@@ -271,7 +299,8 @@ export function AdminDashboard() {
         toast.success(data.message)
         setFreezeDialog({ open: false, user: null })
         setFreezeReason('')
-        refresh()
+        fetchUsers()
+        fetchDashboard()
       } else {
         toast.error(data.error)
       }
@@ -281,11 +310,12 @@ export function AdminDashboard() {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا المستخدم وجميع بياناته؟ هذا الإجراء لا يمكن التراجع عنه.')) return
     try {
-      const res = await fetch(`/api/admin/users?userId=${userId}`, { method: 'DELETE', headers })
+      const res = await fetch(`/api/admin/users?userId=${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       if (data.success) {
         toast.success(data.message)
-        refresh()
+        fetchUsers()
+        fetchDashboard()
       } else {
         toast.error(data.error)
       }
@@ -293,14 +323,13 @@ export function AdminDashboard() {
   }
 
   const handleSaveCategory = async () => {
+    if (!token) return
     try {
       const method = catDialog.mode === 'add' ? 'POST' : 'PUT'
-      const body = catDialog.mode === 'add'
-        ? catForm
-        : { ...catForm, id: catDialog.cat?.id }
+      const body = catDialog.mode === 'add' ? catForm : { ...catForm, id: catDialog.cat?.id }
       const res = await fetch('/api/admin/categories', {
         method,
-        headers: { 'Content-Type': 'application/json', ...headers },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       })
       const data = await res.json()
@@ -308,7 +337,7 @@ export function AdminDashboard() {
         toast.success(data.message)
         setCatDialog({ open: false, mode: 'add', cat: null })
         setCatForm({ type: 'income', nameAr: '', icon: 'Tag', color: '#6366f1', sortOrder: 0 })
-        refresh()
+        fetchCategories()
       } else {
         toast.error(data.error)
       }
@@ -318,11 +347,11 @@ export function AdminDashboard() {
   const handleDeleteCategory = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا البند؟')) return
     try {
-      const res = await fetch(`/api/admin/categories?id=${id}`, { method: 'DELETE', headers })
+      const res = await fetch(`/api/admin/categories?id=${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       if (data.success) {
         toast.success(data.message)
-        refresh()
+        fetchCategories()
       } else {
         toast.error(data.error)
       }
@@ -340,6 +369,20 @@ export function AdminDashboard() {
     { id: 'categories' as const, icon: Tags, label: 'البنود' },
     { id: 'reports' as const, icon: FileText, label: 'التقارير' },
   ]
+
+  // ============ LOADING STATE ============
+
+  if (loading && !dashData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+          <Loader2 className="size-12 text-nature-purple mx-auto mb-4 animate-spin" />
+          <h2 className="text-xl font-bold mb-2">جاري تحميل لوحة التحكم...</h2>
+          <p className="text-sm text-muted-foreground">يرجى الانتظار</p>
+        </motion.div>
+      </div>
+    )
+  }
 
   // ============ RENDER ============
 
@@ -429,20 +472,20 @@ export function AdminDashboard() {
               <motion.div key="overview" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold">نظرة عامة على المنصة</h2>
-                  <Button variant="outline" size="sm" onClick={refresh}>
-                    <Activity className="size-4 ml-2" />تحديث
+                  <Button variant="outline" size="sm" onClick={fetchDashboard} disabled={isRefreshing}>
+                    <RefreshCw className={`size-4 ml-2 ${isRefreshing ? 'animate-spin' : ''}`} />تحديث
                   </Button>
                 </div>
 
                 {/* Summary cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
                   {[
-                    { label: 'المستغلات', value: dashData?.totalFarms || 0, icon: Sprout, color: 'from-nature-green-dark to-green-600', shadow: 'shadow-green-500/20' },
-                    { label: 'المستخدمون', value: dashData?.totalUsers || 0, icon: Users, color: 'from-nature-purple to-nature-blue-red', shadow: 'shadow-purple-500/20' },
-                    { label: 'الفلاحون', value: dashData?.totalFarmers || 0, icon: UserCheck, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
-                    { label: 'العمليات', value: dashData?.totalTransactions || 0, icon: Activity, color: 'from-nature-golden to-yellow-600', shadow: 'shadow-amber-500/20' },
-                    { label: 'المخزونات', value: dashData?.totalInventory || 0, icon: Warehouse, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20' },
-                    { label: 'حسابات مجمّدة', value: dashData?.frozenUsers || 0, icon: Snowflake, color: 'from-red-500 to-red-700', shadow: 'shadow-red-500/20' },
+                    { label: 'المستغلات', value: dashData?.totalFarms ?? 0, icon: Sprout, color: 'from-nature-green-dark to-green-600', shadow: 'shadow-green-500/20' },
+                    { label: 'المستخدمون', value: dashData?.totalUsers ?? 0, icon: Users, color: 'from-nature-purple to-nature-blue-red', shadow: 'shadow-purple-500/20' },
+                    { label: 'الفلاحون', value: dashData?.totalFarmers ?? 0, icon: UserCheck, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
+                    { label: 'العمليات', value: dashData?.totalTransactions ?? 0, icon: Activity, color: 'from-nature-golden to-yellow-600', shadow: 'shadow-amber-500/20' },
+                    { label: 'المخزونات', value: dashData?.totalInventory ?? 0, icon: Warehouse, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20' },
+                    { label: 'حسابات مجمّدة', value: dashData?.frozenUsers ?? 0, icon: Snowflake, color: 'from-red-500 to-red-700', shadow: 'shadow-red-500/20' },
                   ].map((card, i) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                       <Card className={`border-0 shadow-xl ${card.shadow} overflow-hidden`}>
@@ -467,28 +510,28 @@ export function AdminDashboard() {
                     <div className="h-1 bg-gradient-to-l from-nature-green-dark to-green-600" />
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground mb-1">إجمالي المداخيل</p>
-                      <p className="text-xl font-black text-green-600 dark:text-green-400">{formatCurrency(dashData?.totalIncome || 0)}</p>
+                      <p className="text-xl font-black text-green-600 dark:text-green-400">{formatCurrency(dashData?.totalIncome ?? 0)}</p>
                     </CardContent>
                   </Card>
                   <Card className="border-0 shadow-lg overflow-hidden">
                     <div className="h-1 bg-gradient-to-l from-nature-rose to-red-700" />
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p>
-                      <p className="text-xl font-black text-red-600 dark:text-red-400">{formatCurrency(dashData?.totalExpense || 0)}</p>
+                      <p className="text-xl font-black text-red-600 dark:text-red-400">{formatCurrency(dashData?.totalExpense ?? 0)}</p>
                     </CardContent>
                   </Card>
                   <Card className="border-0 shadow-lg overflow-hidden">
                     <div className="h-1 golden-gradient" />
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground mb-1">صافي الأرباح</p>
-                      <p className="text-xl font-black text-amber-600 dark:text-amber-400">{formatCurrency(dashData?.netProfit || 0)}</p>
+                      <p className="text-xl font-black text-amber-600 dark:text-amber-400">{formatCurrency(dashData?.netProfit ?? 0)}</p>
                     </CardContent>
                   </Card>
                   <Card className="border-0 shadow-lg overflow-hidden">
                     <div className="h-1 bg-gradient-to-l from-nature-purple to-nature-blue-red" />
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground mb-1">قيمة المخزون</p>
-                      <p className="text-xl font-black text-purple-600 dark:text-purple-400">{formatCurrency(dashData?.totalInventoryValue || 0)}</p>
+                      <p className="text-xl font-black text-purple-600 dark:text-purple-400">{formatCurrency(dashData?.totalInventoryValue ?? 0)}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -527,67 +570,76 @@ export function AdminDashboard() {
 
                 {/* Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  {dashData?.farmsByWilaya && dashData.farmsByWilaya.length > 0 && (
-                    <Card className="border-0 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Globe className="size-4 text-nature-green" />
-                          توزيع المستغلات حسب الولاية
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Globe className="size-4 text-nature-green" />
+                        توزيع المستغلات حسب الولاية
+                        <Badge variant="outline" className="text-[10px] mr-1">{dashData?.farmsByWilaya?.length ?? 0} ولاية</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashData?.farmsByWilaya && dashData.farmsByWilaya.length > 0 ? (
                         <CategoryPieChart data={dashData.farmsByWilaya} />
-                      </CardContent>
-                    </Card>
-                  )}
-                  {dashData?.topFarms && dashData.topFarms.length > 0 && (
-                    <Card className="border-0 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Award className="size-4 text-nature-golden" />
-                          أداء المستغلات
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
+                      ) : (
+                        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Award className="size-4 text-nature-golden" />
+                        أداء المستغلات
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashData?.topFarms && dashData.topFarms.length > 0 ? (
                         <SeasonalBarChart data={dashData.topFarms.slice(0, 5).map(f => ({
                           season: f.name.replace('مزرعة ', ''),
                           income: f.income,
                           expense: f.expense,
                           profitability: f.profitability,
                         }))} />
-                      </CardContent>
-                    </Card>
-                  )}
+                      ) : (
+                        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Monthly cash flow & Inventory by type */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  {dashData?.monthlyData && (
-                    <Card className="border-0 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <DollarSign className="size-4 text-nature-purple" />
-                          التدفق النقدي الشهري
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <DollarSign className="size-4 text-nature-purple" />
+                        التدفق النقدي الشهري
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashData?.monthlyData && dashData.monthlyData.some(m => m.income > 0 || m.expense > 0) ? (
                         <CashFlowChart data={dashData.monthlyData} />
-                      </CardContent>
-                    </Card>
-                  )}
-                  {dashData?.inventoryByType && dashData.inventoryByType.length > 0 && (
-                    <Card className="border-0 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Package className="size-4 text-nature-golden" />
-                          المخزونات حسب النوع
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
+                      ) : (
+                        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Package className="size-4 text-nature-golden" />
+                        المخزونات حسب النوع
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashData?.inventoryByType && dashData.inventoryByType.length > 0 ? (
                         <InventoryTypeChart data={dashData.inventoryByType} />
-                      </CardContent>
-                    </Card>
-                  )}
+                      ) : (
+                        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Top farms table */}
@@ -597,7 +649,7 @@ export function AdminDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 max-h-80 overflow-y-auto">
-                      {dashData?.topFarms?.slice(0, 10).map((farm, i) => (
+                      {dashData?.topFarms && dashData.topFarms.length > 0 ? dashData.topFarms.slice(0, 10).map((farm, i) => (
                         <div key={farm.id} className={`flex items-center justify-between p-3 rounded-xl transition-colors ${farm.ownerFrozen ? 'bg-red-50/50 dark:bg-red-900/10' : 'bg-muted/30 hover:bg-muted/50'}`}>
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
@@ -625,7 +677,9 @@ export function AdminDashboard() {
                             </Badge>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="p-8 text-center text-muted-foreground">لا توجد مستغلات بعد</div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -640,7 +694,7 @@ export function AdminDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {dashData?.recentUsers?.map(u => (
+                      {dashData?.recentUsers && dashData.recentUsers.length > 0 ? dashData.recentUsers.map(u => (
                         <div key={u.id} className={`flex items-center justify-between p-3 rounded-xl ${u.frozen ? 'bg-red-50/50 dark:bg-red-900/10' : 'bg-muted/30'}`}>
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -663,7 +717,9 @@ export function AdminDashboard() {
                             <p className="text-xs text-muted-foreground mt-1">{u.wilaya || '—'}</p>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="p-8 text-center text-muted-foreground">لا يوجد مستخدمون بعد</div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -679,12 +735,7 @@ export function AdminDashboard() {
                 <div className="flex flex-wrap gap-3 mb-4">
                   <div className="relative flex-1 min-w-[200px]">
                     <Search className="size-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="بحث بالاسم أو البريد أو الولاية..."
-                      value={usersSearch}
-                      onChange={e => setUsersSearch(e.target.value)}
-                      className="pr-9"
-                    />
+                    <Input placeholder="بحث بالاسم أو البريد أو الولاية..." value={usersSearch} onChange={e => setUsersSearch(e.target.value)} className="pr-9" />
                   </div>
                   <Select value={usersRoleFilter} onValueChange={setUsersRoleFilter}>
                     <SelectTrigger className="w-[140px]"><SelectValue placeholder="الدور" /></SelectTrigger>
@@ -707,13 +758,13 @@ export function AdminDashboard() {
                 {/* Stats bar */}
                 <div className="flex gap-3 mb-4 flex-wrap">
                   <Badge variant="outline" className="text-xs py-1.5 px-3">
-                    <Users className="size-3 ml-1" />{dashData?.totalUsers || 0} مستخدم
+                    <Users className="size-3 ml-1" />{dashData?.totalUsers ?? 0} مستخدم
                   </Badge>
                   <Badge variant="outline" className="text-xs py-1.5 px-3">
-                    <Sprout className="size-3 ml-1" />{dashData?.totalFarmers || 0} فلاح
+                    <Sprout className="size-3 ml-1" />{dashData?.totalFarmers ?? 0} فلاح
                   </Badge>
                   <Badge variant="destructive" className="text-xs py-1.5 px-3">
-                    <Snowflake className="size-3 ml-1" />{dashData?.frozenUsers || 0} مجمّد
+                    <Snowflake className="size-3 ml-1" />{dashData?.frozenUsers ?? 0} مجمّد
                   </Badge>
                 </div>
 
@@ -722,7 +773,7 @@ export function AdminDashboard() {
                   <CardContent className="p-0">
                     <div className="divide-y divide-border max-h-[calc(100vh-300px)] overflow-y-auto">
                       {usersLoading ? (
-                        <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>
+                        <div className="p-8 text-center"><Loader2 className="size-6 mx-auto animate-spin text-muted-foreground" /></div>
                       ) : users.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">لا يوجد مستخدمون</div>
                       ) : (
@@ -763,24 +814,15 @@ export function AdminDashboard() {
                                 )}
                               </div>
                               <div className="flex gap-1 mr-2">
-                                <Button
-                                  variant="ghost" size="icon" className="size-8"
-                                  onClick={() => setUserDetailDialog({ open: true, user: u })}
-                                >
+                                <Button variant="ghost" size="icon" className="size-8" onClick={() => setUserDetailDialog({ open: true, user: u })}>
                                   <Eye className="size-4 text-muted-foreground" />
                                 </Button>
                                 {u.role !== 'ADMIN' && (
                                   <>
-                                    <Button
-                                      variant="ghost" size="icon" className="size-8"
-                                      onClick={() => setFreezeDialog({ open: true, user: u })}
-                                    >
+                                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setFreezeDialog({ open: true, user: u })}>
                                       {u.frozen ? <Unlock className="size-4 text-green-500" /> : <Snowflake className="size-4 text-blue-500" />}
                                     </Button>
-                                    <Button
-                                      variant="ghost" size="icon" className="size-8"
-                                      onClick={() => handleDeleteUser(u.id)}
-                                    >
+                                    <Button variant="ghost" size="icon" className="size-8" onClick={() => handleDeleteUser(u.id)}>
                                       <Trash2 className="size-4 text-red-500" />
                                     </Button>
                                   </>
@@ -800,17 +842,15 @@ export function AdminDashboard() {
             {adminTab === 'farms' && (
               <motion.div key="farms" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <h2 className="text-2xl font-bold mb-6">إدارة المستغلات الفلاحية</h2>
-
                 <div className="flex gap-3 mb-4">
                   <div className="relative flex-1">
                     <Search className="size-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input placeholder="بحث بالاسم أو الولاية..." value={farmsSearch} onChange={e => setFarmsSearch(e.target.value)} className="pr-9" />
                   </div>
                 </div>
-
                 <div className="grid gap-4 max-h-[calc(100vh-250px)] overflow-y-auto">
                   {farmsLoading ? (
-                    <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>
+                    <div className="p-8 text-center"><Loader2 className="size-6 mx-auto animate-spin text-muted-foreground" /></div>
                   ) : farms.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">لا توجد مستغلات</div>
                   ) : (
@@ -838,7 +878,6 @@ export function AdminDashboard() {
                               ربحية {farm.stats.profitability.toFixed(1)}%
                             </Badge>
                           </div>
-
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
                               <p className="text-xs text-muted-foreground">المداخيل</p>
@@ -857,8 +896,6 @@ export function AdminDashboard() {
                               <p className="text-sm font-bold text-purple-600 dark:text-purple-400">{farm.stats.transactionCount} / {farm.stats.inventoryCount}</p>
                             </div>
                           </div>
-
-                          {/* Seasons */}
                           <div className="flex flex-wrap gap-2">
                             {farm.seasons.map(s => (
                               <Badge key={s.id} variant="outline" className="text-xs">
@@ -879,7 +916,6 @@ export function AdminDashboard() {
             {adminTab === 'transactions' && (
               <motion.div key="transactions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <h2 className="text-2xl font-bold mb-6">جميع العمليات المالية</h2>
-
                 <div className="flex gap-3 mb-4">
                   <Select value={txTypeFilter} onValueChange={setTxTypeFilter}>
                     <SelectTrigger className="w-[140px]"><SelectValue placeholder="النوع" /></SelectTrigger>
@@ -891,19 +927,18 @@ export function AdminDashboard() {
                   </Select>
                   <div className="flex gap-2 mr-auto">
                     <Badge variant="outline" className="py-1.5 px-3">
-                      <TrendingUp className="size-3 ml-1 text-green-500" />{dashData?.incomeTransactions || 0} مدخول
+                      <TrendingUp className="size-3 ml-1 text-green-500" />{dashData?.incomeTransactions ?? 0} مدخول
                     </Badge>
                     <Badge variant="outline" className="py-1.5 px-3">
-                      <TrendingDown className="size-3 ml-1 text-red-500" />{dashData?.expenseTransactions || 0} مصروف
+                      <TrendingDown className="size-3 ml-1 text-red-500" />{dashData?.expenseTransactions ?? 0} مصروف
                     </Badge>
                   </div>
                 </div>
-
                 <Card className="border-0 shadow-lg">
                   <CardContent className="p-0">
                     <div className="divide-y divide-border max-h-[calc(100vh-280px)] overflow-y-auto">
                       {txLoading ? (
-                        <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>
+                        <div className="p-8 text-center"><Loader2 className="size-6 mx-auto animate-spin text-muted-foreground" /></div>
                       ) : transactions.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">لا توجد عمليات</div>
                       ) : (
@@ -930,9 +965,7 @@ export function AdminDashboard() {
                               <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                               </p>
-                              {tx.quantity > 0 && (
-                                <p className="text-xs text-muted-foreground">{tx.quantity} × {formatCurrency(tx.unitPrice)}</p>
-                              )}
+                              {tx.quantity > 0 && <p className="text-xs text-muted-foreground">{tx.quantity} × {formatCurrency(tx.unitPrice)}</p>}
                               <p className="text-xs text-muted-foreground">{formatDate(tx.txnDate)}</p>
                             </div>
                           </div>
@@ -948,7 +981,6 @@ export function AdminDashboard() {
             {adminTab === 'inventory' && (
               <motion.div key="inventory" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <h2 className="text-2xl font-bold mb-6">جميع المخزونات</h2>
-
                 <div className="flex flex-wrap gap-3 mb-4">
                   <Select value={invTypeFilter} onValueChange={setInvTypeFilter}>
                     <SelectTrigger className="w-[160px]"><SelectValue placeholder="النوع" /></SelectTrigger>
@@ -968,7 +1000,7 @@ export function AdminDashboard() {
                   </div>
                   <div className="flex gap-2">
                     <Badge variant="outline" className="py-1.5 px-3">
-                      <Warehouse className="size-3 ml-1" />{dashData?.totalInventory || 0} صنف
+                      <Warehouse className="size-3 ml-1" />{dashData?.totalInventory ?? 0} صنف
                     </Badge>
                     {dashData && dashData.lowStockCount > 0 && (
                       <Badge variant="destructive" className="py-1.5 px-3">
@@ -977,12 +1009,11 @@ export function AdminDashboard() {
                     )}
                   </div>
                 </div>
-
                 <Card className="border-0 shadow-lg">
                   <CardContent className="p-0">
                     <div className="divide-y divide-border max-h-[calc(100vh-300px)] overflow-y-auto">
                       {invLoading ? (
-                        <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>
+                        <div className="p-8 text-center"><Loader2 className="size-6 mx-auto animate-spin text-muted-foreground" /></div>
                       ) : inventories.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">لا توجد مخزونات</div>
                       ) : (
@@ -991,9 +1022,7 @@ export function AdminDashboard() {
                           return (
                             <div key={inv.id} className={`flex items-center justify-between p-4 transition-colors ${inv.isLowStock ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'hover:bg-muted/30'}`}>
                               <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                  inv.isLowStock ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-muted'
-                                }`}>
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${inv.isLowStock ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-muted'}`}>
                                   <TypeIcon className={`size-5 ${inv.isLowStock ? 'text-amber-600' : 'text-muted-foreground'}`} />
                                 </div>
                                 <div>
@@ -1015,7 +1044,7 @@ export function AdminDashboard() {
                                   <span className="font-bold">الرصيد: {inv.qtyBalance} {inv.unit}</span>
                                 </div>
                                 <div className="text-muted-foreground mt-1">
-                                  تكلفة الوحدة: {formatCurrency(inv.unitCost)} • القيمة: {formatCurrency(inv.totalValue)}
+                                  تكلفة: {formatCurrency(inv.unitCost)} • القيمة: {formatCurrency(inv.totalValue)}
                                 </div>
                               </div>
                             </div>
@@ -1040,9 +1069,7 @@ export function AdminDashboard() {
                     <Plus className="size-4 ml-2" />إضافة بند
                   </Button>
                 </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Income categories */}
                   <Card className="border-0 shadow-lg">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-bold flex items-center gap-2 text-green-600">
@@ -1051,7 +1078,8 @@ export function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                        {categories.filter(c => c.type === 'income').map(cat => (
+                        {catLoading ? <div className="p-4 text-center"><Loader2 className="size-5 mx-auto animate-spin" /></div> :
+                        categories.filter(c => c.type === 'income').map(cat => (
                           <div key={cat.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: cat.color + '20' }}>
@@ -1066,20 +1094,14 @@ export function AdminDashboard() {
                               <Button variant="ghost" size="icon" className="size-7" onClick={() => {
                                 setCatForm({ type: cat.type, nameAr: cat.nameAr, icon: cat.icon, color: cat.color, sortOrder: cat.sortOrder })
                                 setCatDialog({ open: true, mode: 'edit', cat })
-                              }}>
-                                <Edit2 className="size-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="size-7" onClick={() => handleDeleteCategory(cat.id)}>
-                                <Trash2 className="size-3 text-red-500" />
-                              </Button>
+                              }}><Edit2 className="size-3" /></Button>
+                              <Button variant="ghost" size="icon" className="size-7" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="size-3 text-red-500" /></Button>
                             </div>
                           </div>
                         ))}
                       </div>
                     </CardContent>
                   </Card>
-
-                  {/* Expense categories */}
                   <Card className="border-0 shadow-lg">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-600">
@@ -1088,7 +1110,8 @@ export function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                        {categories.filter(c => c.type === 'expense').map(cat => (
+                        {catLoading ? <div className="p-4 text-center"><Loader2 className="size-5 mx-auto animate-spin" /></div> :
+                        categories.filter(c => c.type === 'expense').map(cat => (
                           <div key={cat.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: cat.color + '20' }}>
@@ -1103,12 +1126,8 @@ export function AdminDashboard() {
                               <Button variant="ghost" size="icon" className="size-7" onClick={() => {
                                 setCatForm({ type: cat.type, nameAr: cat.nameAr, icon: cat.icon, color: cat.color, sortOrder: cat.sortOrder })
                                 setCatDialog({ open: true, mode: 'edit', cat })
-                              }}>
-                                <Edit2 className="size-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="size-7" onClick={() => handleDeleteCategory(cat.id)}>
-                                <Trash2 className="size-3 text-red-500" />
-                              </Button>
+                              }}><Edit2 className="size-3" /></Button>
+                              <Button variant="ghost" size="icon" className="size-7" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="size-3 text-red-500" /></Button>
                             </div>
                           </div>
                         ))}
@@ -1123,31 +1142,29 @@ export function AdminDashboard() {
             {adminTab === 'reports' && (
               <motion.div key="reports" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <h2 className="text-2xl font-bold mb-6">التقارير والإحصائيات</h2>
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                   <Card className="border-0 shadow-lg text-center">
                     <CardContent className="p-6">
                       <Activity className="size-10 text-nature-green mx-auto mb-2" />
-                      <p className="text-3xl font-black">{dashData?.totalTransactions || 0}</p>
+                      <p className="text-3xl font-black">{dashData?.totalTransactions ?? 0}</p>
                       <p className="text-sm text-muted-foreground">عملية مالية مسجلة</p>
                     </CardContent>
                   </Card>
                   <Card className="border-0 shadow-lg text-center">
                     <CardContent className="p-6">
                       <TrendingUp className="size-10 text-green-500 mx-auto mb-2" />
-                      <p className="text-3xl font-black">{formatCurrency(dashData?.totalIncome || 0)}</p>
+                      <p className="text-3xl font-black">{formatCurrency(dashData?.totalIncome ?? 0)}</p>
                       <p className="text-sm text-muted-foreground">إجمالي المداخيل</p>
                     </CardContent>
                   </Card>
                   <Card className="border-0 shadow-lg text-center">
                     <CardContent className="p-6">
                       <TrendingDown className="size-10 text-red-500 mx-auto mb-2" />
-                      <p className="text-3xl font-black">{formatCurrency(dashData?.totalExpense || 0)}</p>
+                      <p className="text-3xl font-black">{formatCurrency(dashData?.totalExpense ?? 0)}</p>
                       <p className="text-sm text-muted-foreground">إجمالي المصاريف</p>
                     </CardContent>
                   </Card>
                 </div>
-
                 <Card className="border-0 shadow-lg mb-6">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-bold">ملخص الأداء المالي</CardTitle>
@@ -1157,14 +1174,14 @@ export function AdminDashboard() {
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span>متوسط الربحية</span>
-                          <span className="font-bold">{dashData?.avgProfitability.toFixed(1)}%</span>
+                          <span className="font-bold">{(dashData?.avgProfitability ?? 0).toFixed(1)}%</span>
                         </div>
-                        <Progress value={Math.max(0, dashData?.avgProfitability || 0)} className="h-3" />
+                        <Progress value={Math.max(0, dashData?.avgProfitability ?? 0)} className="h-3" />
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span>صافي الأرباح</span>
-                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(dashData?.netProfit || 0)}</span>
+                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(dashData?.netProfit ?? 0)}</span>
                         </div>
                       </div>
                       <div>
@@ -1177,14 +1194,12 @@ export function AdminDashboard() {
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span>قيمة المخزون الإجمالية</span>
-                          <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(dashData?.totalInventoryValue || 0)}</span>
+                          <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(dashData?.totalInventoryValue ?? 0)}</span>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-
-                {/* Wilaya distribution & inventory by type charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {dashData?.farmsByWilaya && dashData.farmsByWilaya.length > 0 && (
                     <Card className="border-0 shadow-lg">
@@ -1217,37 +1232,23 @@ export function AdminDashboard() {
       <Dialog open={freezeDialog.open} onOpenChange={o => setFreezeDialog({ open: o, user: o ? freezeDialog.user : null })}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {freezeDialog.user?.frozen ? 'فك تجميد الحساب' : 'تجميد الحساب'}
-            </DialogTitle>
+            <DialogTitle>{freezeDialog.user?.frozen ? 'فك تجميد الحساب' : 'تجميد الحساب'}</DialogTitle>
             <DialogDescription>
               {freezeDialog.user?.frozen
                 ? `سيتم فك تجميد حساب "${freezeDialog.user?.name}" وسيتمكن من الدخول للمنصة مجدداً`
-                : `سيتم تجميد حساب "${freezeDialog.user?.name}" ولن يتمكن من الدخول للمنصة`
-              }
+                : `سيتم تجميد حساب "${freezeDialog.user?.name}" ولن يتمكن من الدخول للمنصة`}
             </DialogDescription>
           </DialogHeader>
           {!freezeDialog.user?.frozen && (
             <div>
               <label className="text-sm font-medium mb-2 block">سبب التجميد</label>
-              <Textarea
-                placeholder="أدخل سبب تجميد الحساب..."
-                value={freezeReason}
-                onChange={e => setFreezeReason(e.target.value)}
-              />
+              <Textarea placeholder="أدخل سبب تجميد الحساب..." value={freezeReason} onChange={e => setFreezeReason(e.target.value)} />
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFreezeDialog({ open: false, user: null })}>إلغاء</Button>
-            <Button
-              variant={freezeDialog.user?.frozen ? 'default' : 'destructive'}
-              onClick={handleFreezeUser}
-            >
-              {freezeDialog.user?.frozen ? (
-                <><Unlock className="size-4 ml-2" />فك التجميد</>
-              ) : (
-                <><Snowflake className="size-4 ml-2" />تجميد الحساب</>
-              )}
+            <Button variant={freezeDialog.user?.frozen ? 'default' : 'destructive'} onClick={handleFreezeUser}>
+              {freezeDialog.user?.frozen ? <><Unlock className="size-4 ml-2" />فك التجميد</> : <><Snowflake className="size-4 ml-2" />تجميد الحساب</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1278,7 +1279,6 @@ export function AdminDashboard() {
                   <p className="text-sm text-muted-foreground">{userDetailDialog.user.email}</p>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-muted/30 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">الدور</p>
@@ -1315,17 +1315,13 @@ export function AdminDashboard() {
                   <p className="text-sm font-medium">{userDetailDialog.user.transactionCount} عملية</p>
                 </div>
               </div>
-
               {userDetailDialog.user.frozen && (
                 <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
                   <p className="text-xs text-red-600 dark:text-red-400 font-medium">سبب التجميد</p>
                   <p className="text-sm text-red-700 dark:text-red-300">{userDetailDialog.user.frozenReason || 'لم يحدد'}</p>
-                  {userDetailDialog.user.frozenAt && (
-                    <p className="text-xs text-red-500 mt-1">منذ: {formatDateTime(userDetailDialog.user.frozenAt)}</p>
-                  )}
+                  {userDetailDialog.user.frozenAt && <p className="text-xs text-red-500 mt-1">منذ: {formatDateTime(userDetailDialog.user.frozenAt)}</p>}
                 </div>
               )}
-
               {userDetailDialog.user.farm && (
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
                   <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">المستغلة</p>
@@ -1378,9 +1374,7 @@ export function AdminDashboard() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatDialog({ open: false, mode: 'add', cat: null })}>إلغاء</Button>
-            <Button onClick={handleSaveCategory}>
-              {catDialog.mode === 'add' ? 'إضافة' : 'حفظ'}
-            </Button>
+            <Button onClick={handleSaveCategory}>{catDialog.mode === 'add' ? 'إضافة' : 'حفظ'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
