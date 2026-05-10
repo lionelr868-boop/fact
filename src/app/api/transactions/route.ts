@@ -86,7 +86,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { type, categoryId, amount, txnDate, note, seasonId } = body
+    const {
+      type, categoryId, amount, txnDate, note, seasonId,
+      quantity, unitPrice, linkedInventoryId,
+    } = body
 
     // Validate type
     if (!type || !['income', 'expense'].includes(type)) {
@@ -96,8 +99,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Calculate amount from quantity * unitPrice if amount not provided
+    let finalAmount = amount ? parseFloat(amount) : 0
+    const finalQuantity = quantity ? parseFloat(quantity) : 0
+    const finalUnitPrice = unitPrice ? parseFloat(unitPrice) : 0
+
+    if (!finalAmount && finalQuantity > 0 && finalUnitPrice > 0) {
+      finalAmount = finalQuantity * finalUnitPrice
+    }
+
     // Validate amount
-    if (!amount || amount <= 0) {
+    if (!finalAmount || finalAmount <= 0) {
       return NextResponse.json(
         { success: false, error: 'المبلغ يجب أن يكون أكبر من صفر' },
         { status: 400 }
@@ -146,13 +158,64 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Handle inventory auto-deduction for income transactions with linked inventory
+    if (type === 'income' && linkedInventoryId) {
+      const inventoryItem = await db.inventory.findUnique({
+        where: { id: linkedInventoryId },
+      })
+
+      if (!inventoryItem) {
+        return NextResponse.json(
+          { success: false, error: 'عنصر المخزون غير موجود' },
+          { status: 404 }
+        )
+      }
+
+      // Verify inventory belongs to the same farm
+      if (inventoryItem.farmId !== season.farmId) {
+        return NextResponse.json(
+          { success: false, error: 'عنصر المخزون لا ينتمي لنفس المزرعة' },
+          { status: 403 }
+        )
+      }
+
+      // Check if quantity to deduct is more than available balance
+      const deductQuantity = finalQuantity || 0
+      if (deductQuantity > 0 && deductQuantity > inventoryItem.qtyBalance) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `الكمية المطلوبة (${deductQuantity}) تتجاوز الرصيد المتاح (${inventoryItem.qtyBalance})`,
+          },
+          { status: 400 }
+        )
+      }
+
+      // Update inventory: increase qtyOut, recalculate qtyBalance
+      if (deductQuantity > 0) {
+        const newQtyOut = inventoryItem.qtyOut + deductQuantity
+        const newQtyBalance = inventoryItem.qtyIn - newQtyOut
+
+        await db.inventory.update({
+          where: { id: linkedInventoryId },
+          data: {
+            qtyOut: newQtyOut,
+            qtyBalance: newQtyBalance,
+          },
+        })
+      }
+    }
+
     // Create transaction
     const transaction = await db.transaction.create({
       data: {
         seasonId: targetSeasonId,
         type,
         categoryId: categoryId || null,
-        amount: parseFloat(amount),
+        amount: finalAmount,
+        quantity: finalQuantity,
+        unitPrice: finalUnitPrice,
+        linkedInventoryId: linkedInventoryId || null,
         txnDate: new Date(txnDate || new Date()),
         note: note || null,
       },

@@ -15,8 +15,24 @@ import {
 } from 'lucide-react'
 
 const CATEGORY_ICONS: Record<string, any> = {
+  // Income categories
+  'بيع القمح': Wheat, 'بيع الشعير': Wheat, 'بيع البطاطا': Carrot,
+  'بيع الطماطم': Carrot, 'بيع الخضروات': Carrot, 'بيع الحليب': Milk,
+  'بيع الأجبان': Milk, 'بيع البيض': Milk, 'بيع اللحوم': Milk,
+  'بيع زيت الزيتون': Droplets, 'بيع الحمضيات': Carrot, 'بيع البقوليات': Wheat,
+  'دعم حكومي': Landmark, 'إعانة البذور': Landmark, 'إعانة الري': Landmark,
+  // Expense categories
+  'بذور القمح': Sprout, 'بذور الخضروات': Sprout, 'بذور البقوليات': Sprout,
+  'أسمدة NPK': FlaskConical, 'أسمدة عضوية': FlaskConical,
+  'مبيدات أعشاب': FlaskConical, 'مبيدات حشرية': FlaskConical,
+  'ري بالرش': Droplets, 'ري بالتنقيط': Droplets,
+  'عمالة موسمية': Users, 'عمالة دائمة': Users,
+  'نقل المحاصيل': Truck, 'تسويق': Truck,
+  'صيانة معدات': Wrench, 'صيانة مباني': Wrench,
+  'أعلاف الماشية': Wheat, 'وقود': Truck,
+  // Legacy mappings for backward compatibility
   'حبوب': Wheat, 'خضروات': Carrot, 'منتجات حيوانية': Milk,
-  'دعم حكومي': Landmark, 'بذور': Sprout, 'أسمدة ومبيدات': FlaskConical,
+  'بذور': Sprout, 'أسمدة ومبيدات': FlaskConical,
   'ري': Droplets, 'عمالة': Users, 'نقل وتسويق': Truck,
   'صيانة': Wrench, 'أخرى': Plus,
 }

@@ -63,17 +63,20 @@ model Category {
 }
 
 model Transaction {
-  id         String   @id @default(cuid())
-  seasonId   String
-  type       String   // income or expense
-  categoryId String?
-  amount     Float
-  txnDate    DateTime
-  note       String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  season     Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  category   Category? @relation(fields: [categoryId], references: [id])
+  id                String   @id @default(cuid())
+  seasonId          String
+  type              String   // income or expense
+  categoryId        String?
+  amount            Float
+  quantity          Float    @default(0)   // quantity sold/purchased
+  unitPrice         Float    @default(0)   // price per unit
+  linkedInventoryId String?               // links to inventory item for auto-deduction
+  txnDate           DateTime
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  season            Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  category          Category? @relation(fields: [categoryId], references: [id])
 }
 
 model Inventory {

@@ -40,8 +40,24 @@ interface DashboardData {
 }
 
 const CATEGORY_ICONS: Record<string, any> = {
+  // Income categories
+  'بيع القمح': Wheat, 'بيع الشعير': Wheat, 'بيع البطاطا': Carrot,
+  'بيع الطماطم': Carrot, 'بيع الخضروات': Carrot, 'بيع الحليب': Milk,
+  'بيع الأجبان': Milk, 'بيع البيض': Milk, 'بيع اللحوم': Milk,
+  'بيع زيت الزيتون': Droplets, 'بيع الحمضيات': Carrot, 'بيع البقوليات': Wheat,
+  'دعم حكومي': Landmark, 'إعانة البذور': Landmark, 'إعانة الري': Landmark,
+  // Expense categories
+  'بذور القمح': Sprout, 'بذور الخضروات': Sprout, 'بذور البقوليات': Sprout,
+  'أسمدة NPK': FlaskConical, 'أسمدة عضوية': FlaskConical,
+  'مبيدات أعشاب': FlaskConical, 'مبيدات حشرية': FlaskConical,
+  'ري بالرش': Droplets, 'ري بالتنقيط': Droplets,
+  'عمالة موسمية': Users, 'عمالة دائمة': Users,
+  'نقل المحاصيل': Truck, 'تسويق': Truck,
+  'صيانة معدات': Wrench, 'صيانة مباني': Wrench,
+  'أعلاف الماشية': Wheat, 'وقود': Truck,
+  // Legacy mappings for backward compatibility
   'حبوب': Wheat, 'خضروات': Carrot, 'منتجات حيوانية': Milk,
-  'دعم حكومي': Landmark, 'بذور': Sprout, 'أسمدة ومبيدات': FlaskConical,
+  'بذور': Sprout, 'أسمدة ومبيدات': FlaskConical,
   'ري': Droplets, 'عمالة': Users, 'نقل وتسويق': Truck,
   'صيانة': Wrench, 'أخرى': Plus,
 }
@@ -160,7 +176,8 @@ export function FarmerDashboard() {
 
   // Transaction dialog
   const [txDialog, setTxDialog] = useState(false)
-  const [txForm, setTxForm] = useState({ type: 'income', categoryId: '', amount: '', note: '', txnDate: new Date().toISOString().split('T')[0] })
+  const defaultTxForm = { type: 'income' as const, categoryId: '', amount: '', note: '', txnDate: new Date().toISOString().split('T')[0], quantity: '', unitPrice: '', linkedInventoryId: '' }
+  const [txForm, setTxForm] = useState(defaultTxForm)
 
   const handleAddTransaction = async () => {
     if (!txForm.amount || parseFloat(txForm.amount) <= 0) {
@@ -176,6 +193,9 @@ export function FarmerDashboard() {
         type: txForm.type,
         categoryId: txForm.categoryId || null,
         amount: parseFloat(txForm.amount),
+        quantity: parseFloat(txForm.quantity) || 0,
+        unitPrice: parseFloat(txForm.unitPrice) || 0,
+        linkedInventoryId: txForm.linkedInventoryId || null,
         txnDate: txForm.txnDate,
         note: txForm.note || null,
         seasonId: selectedSeason,
@@ -187,13 +207,20 @@ export function FarmerDashboard() {
       })
       const data = await res.json()
       if (data.success) {
-        toast.success('تم إضافة العملية بنجاح')
+        const isLinked = !!txForm.linkedInventoryId
+        toast.success(isLinked ? 'تم إضافة العملية وتحديث المخزون بنجاح' : 'تم إضافة العملية بنجاح')
         setTxDialog(false)
-        setTxForm({ type: 'income', categoryId: '', amount: '', note: '', txnDate: new Date().toISOString().split('T')[0] })
+        setTxForm(defaultTxForm)
         // Refresh transactions list directly
         const txRes = await fetch(`/api/transactions?seasonId=${selectedSeason}`, { headers })
         const txData = await txRes.json()
         if (txData.success) setTransactions(txData.data.transactions)
+        // Refresh inventory list directly
+        if (farm) {
+          const invRes = await fetch(`/api/inventory?farmId=${farm.id}&seasonId=${selectedSeason}`, { headers })
+          const invData = await invRes.json()
+          if (invData.success) setInventory(invData.data)
+        }
         refreshData()
       } else {
         toast.error(data.error || 'حدث خطأ أثناء الإضافة')
@@ -696,7 +723,7 @@ export function FarmerDashboard() {
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
-                            onClick={() => setTxForm({ ...txForm, type: 'income' })}
+                            onClick={() => setTxForm({ ...txForm, type: 'income', linkedInventoryId: '', quantity: '', unitPrice: '' })}
                             className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                               txForm.type === 'income' ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-muted'
                             }`}
@@ -706,7 +733,7 @@ export function FarmerDashboard() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setTxForm({ ...txForm, type: 'expense' })}
+                            onClick={() => setTxForm({ ...txForm, type: 'expense', linkedInventoryId: '', quantity: '', unitPrice: '', amount: '' })}
                             className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                               txForm.type === 'expense' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-muted'
                             }`}
@@ -736,6 +763,84 @@ export function FarmerDashboard() {
                           </Select>
                         </div>
 
+                        {/* Linked Inventory Item - only for income */}
+                        {txForm.type === 'income' && (
+                          <div className="space-y-2">
+                            <Label>صنف المخزون (اختياري)</Label>
+                            <Select
+                              value={txForm.linkedInventoryId}
+                              onValueChange={v => {
+                                if (v === '__none__') {
+                                  setTxForm({ ...txForm, linkedInventoryId: '', quantity: '', unitPrice: '', amount: '' })
+                                } else {
+                                  const selectedItem = inventory.find((item: any) => item.id === v)
+                                  if (selectedItem) {
+                                    const newUnitPrice = String(selectedItem.unitCost || '')
+                                    const newAmount = txForm.quantity && newUnitPrice ? String(parseFloat(txForm.quantity) * parseFloat(newUnitPrice)) : ''
+                                    setTxForm({ ...txForm, linkedInventoryId: v, unitPrice: newUnitPrice, amount: newAmount })
+                                  } else {
+                                    setTxForm({ ...txForm, linkedInventoryId: v })
+                                  }
+                                }
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="اختر صنف المخزون" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">بدون ربط</SelectItem>
+                                {inventory
+                                  .filter((item: any) => item.qtyBalance > 0)
+                                  .map((item: any) => (
+                                    <SelectItem key={item.id} value={item.id}>
+                                      {item.itemName} (الرصيد: {item.qtyBalance} {item.unit})
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Quantity - when inventory item is selected */}
+                        {txForm.linkedInventoryId && (
+                          <div className="space-y-2">
+                            <Label>
+                              الكمية{txForm.linkedInventoryId && inventory.find((i: any) => i.id === txForm.linkedInventoryId) ? ` (${inventory.find((i: any) => i.id === txForm.linkedInventoryId).unit})` : ''}
+                            </Label>
+                            <Input
+                              type="number"
+                              value={txForm.quantity}
+                              onChange={e => {
+                                const qty = e.target.value
+                                const newAmount = qty && txForm.unitPrice ? String(parseFloat(qty) * parseFloat(txForm.unitPrice)) : ''
+                                setTxForm({ ...txForm, quantity: qty, amount: newAmount })
+                              }}
+                              placeholder="0"
+                              dir="ltr"
+                              className="h-12"
+                            />
+                          </div>
+                        )}
+
+                        {/* Unit Price - when inventory item is selected */}
+                        {txForm.linkedInventoryId && (
+                          <div className="space-y-2">
+                            <Label>سعر الوحدة (دج)</Label>
+                            <Input
+                              type="number"
+                              value={txForm.unitPrice}
+                              onChange={e => {
+                                const price = e.target.value
+                                const newAmount = txForm.quantity && price ? String(parseFloat(txForm.quantity) * parseFloat(price)) : ''
+                                setTxForm({ ...txForm, unitPrice: price, amount: newAmount })
+                              }}
+                              placeholder="0"
+                              dir="ltr"
+                              className="h-12"
+                            />
+                          </div>
+                        )}
+
                         {/* Amount */}
                         <div className="space-y-2">
                           <Label>المبلغ (دج)</Label>
@@ -745,8 +850,12 @@ export function FarmerDashboard() {
                             onChange={e => setTxForm({ ...txForm, amount: e.target.value })}
                             placeholder="0"
                             dir="ltr"
-                            className="text-lg font-bold h-12"
+                            className={`text-lg font-bold h-12 ${txForm.linkedInventoryId && txForm.quantity && txForm.unitPrice ? 'bg-muted cursor-not-allowed' : ''}`}
+                            readOnly={!!(txForm.linkedInventoryId && txForm.quantity && txForm.unitPrice)}
                           />
+                          {txForm.linkedInventoryId && txForm.quantity && txForm.unitPrice && (
+                            <p className="text-xs text-muted-foreground">محسوب تلقائياً: {txForm.quantity} × {txForm.unitPrice} = {parseFloat(txForm.quantity) * parseFloat(txForm.unitPrice)} دج</p>
+                          )}
                         </div>
 
                         {/* Date */}
