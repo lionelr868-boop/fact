@@ -1560,14 +1560,26 @@ function Footer() {
           ))}
         </div>
 
-        <div className="pt-8 border-t border-border/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">
-            © 2024 FACT — منصة المحاسبة الفلاحية الرقمية. جميع الحقوق محفوظة.
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">صُنع بـ</span>
-            <Heart className="size-3 text-nature-rose" />
-            <span className="text-xs text-muted-foreground">في الجزائر</span>
+        <div className="pt-8 border-t border-border/30 flex flex-col items-center gap-4">
+          {/* Developer credit - golden text */}
+          <div className="text-center">
+            <p className="text-sm sm:text-base font-bold bg-gradient-to-l from-yellow-500 via-amber-400 to-yellow-600 bg-clip-text text-transparent leading-relaxed" dir="rtl">
+              المنصة من تطوير يحي مسعود
+            </p>
+            <p className="text-xs sm:text-sm font-semibold bg-gradient-to-l from-yellow-600 via-amber-500 to-yellow-700 bg-clip-text text-transparent leading-relaxed mt-1" dir="rtl">
+              طالب دكتوراه في جامعة الجزائر ٣ — مخبر استراتيجيات التحول الاقتصادي
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4">
+            <p className="text-xs text-muted-foreground">
+              © 2024 FACT — منصة المحاسبة الفلاحية الرقمية. جميع الحقوق محفوظة.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">صُنع بـ</span>
+              <Heart className="size-3 text-nature-rose" />
+              <span className="text-xs text-muted-foreground">في الجزائر</span>
+            </div>
           </div>
         </div>
       </div>
