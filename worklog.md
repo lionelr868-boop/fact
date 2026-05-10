@@ -178,3 +178,64 @@ Stage Summary:
 - Inventory value, alerts, and sync indicators are prominently displayed
 - All data refreshes automatically when transactions change
 - Income/expense trends compared to previous season shown in summary cards
+
+---
+Task ID: 1
+Agent: full-stack-developer
+Task: Redesign FACT landing page as animated user guide
+
+Work Log:
+- Read existing landing.tsx (1500+ lines) to understand structure and design patterns
+- Read store.ts to confirm useAppStore API (setCurrentView, views)
+- Read globals.css to confirm available CSS classes (hero-gradient, glass, golden-gradient, green-gradient, purple-gradient, luxury-gradient, mockup-shadow, cta-bg, animate-* classes, custom colors)
+- Completely rewrote landing.tsx as a beautiful, animated, colorful user guide
+- New sections: Hero, WelcomeGuideIntro, TransactionGuideStep, InventoryGuideStep, ReportsGuideStep, GovernanceGuideStep, DashboardPreviewSection, SeasonExplanation, StatsSection, CTASection, Footer
+- All text in Arabic, RTL layout, responsive design
+- Uses Framer Motion extensively: fadeInUp, fadeInRight, fadeInLeft, scaleIn, staggerContainer variants
+- Scroll-triggered animations with whileInView
+- Parallax scrolling on hero and dashboard preview
+- Typewriter effect on hero subtitle
+- Interactive mockups: transaction form, governance radar SVG, season selector
+- All visuals created with CSS/SVG (no external images)
+- Platform stats fetched from /api/stats with animated counters
+- Register/Login buttons use useAppStore setCurrentView
+- Lint passes for landing.tsx with no errors
+
+Stage Summary:
+- Landing page completely rewritten as a comprehensive user guide
+- 7 major sections guide users through all platform features
+- Rich Framer Motion animations throughout (scroll-triggered, hover, parallax, stagger)
+- Arabic RTL interface consistent with platform design system
+- All platform sections covered: transactions, inventory, reports, governance KPIs, seasons, dashboard
+- Beautiful mockups of transaction form and governance radar
+- Season selector explanation with visual mockup
+- Stats counter section with animated numbers from API
+---
+Task ID: 1
+Agent: main
+Task: Redesign landing page as a beautiful animated user guide consistent with platform content
+
+Work Log:
+- Read current landing.tsx, farmer-dashboard.tsx, charts.tsx, globals.css, store.ts
+- Identified user requirement: update the FRONT landing page (not dashboard) to be a user guide
+- Delegated to full-stack-developer subagent to rewrite the landing page
+- Fixed broken icon imports (Hay → Leaf, Pill → FlaskConical, duplicate Leaf)
+- Fixed export type (default → named export `LandingPage`) to match page.tsx import
+- Verified compilation succeeds (200 status)
+
+Stage Summary:
+- Completely rewrote /home/z/my-project/src/components/fact/landing.tsx (~1587 lines)
+- New landing page includes 10 sections:
+  1. Hero with typewriter, parallax, floating cards
+  2. Welcome Guide Intro (4 section cards)
+  3. Transaction Guide (income/expense categories + form mockup)
+  4. Inventory Guide (6 type cards + sync explanation)
+  5. Reports Guide (4 report types + PDF export info)
+  6. Governance Guide (8 KPIs + radar SVG mockup)
+  7. Dashboard Preview (full mockup with parallax)
+  8. Season Explanation (season selector demo)
+  9. Stats Counter (animated from /api/stats)
+  10. CTA Footer + Footer
+- All sections use Framer Motion animations
+- Arabic RTL layout with luxury color palette
+- Responsive design (mobile-first)
