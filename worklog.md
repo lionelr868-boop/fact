@@ -37,3 +37,23 @@ Stage Summary:
 - All 7 tabs are functional with search, filter, and pagination support
 - Categories management prevents deletion of categories with existing transactions
 - Low stock alerts and frozen account alerts shown in overview
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix wilaya distribution chart not showing in admin reports tab
+
+Work Log:
+- Identified the bug: In admin reports tab, the wilaya distribution chart used `CategoryPieChart` instead of `WilayaDistributionChart`
+- `CategoryPieChart` expects `{ name, value }` format but `farmsByWilaya` returns `{ name, count }` format
+- Also, the chart was conditionally rendered only when data existed, hiding the card entirely when empty
+- Replaced `CategoryPieChart` with `WilayaDistributionChart` (same chart used in overview tab which works correctly)
+- Added proper data mapping: `dashData.farmsByWilaya.map(w => ({ name: w.name, value: w.count }))`
+- Made both charts always visible with empty state placeholders when no data
+- Added icons (Globe, Package) and badge to card headers for consistency with overview tab
+
+Stage Summary:
+- Wilaya distribution chart now shows correctly in admin reports tab
+- Uses horizontal bar chart (WilayaDistributionChart) instead of pie chart
+- Data format mismatch (count vs value) resolved with mapping
+- Both charts in reports tab now show empty states when no data instead of disappearing

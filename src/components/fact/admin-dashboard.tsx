@@ -1201,26 +1201,37 @@ export function AdminDashboard() {
                   </CardContent>
                 </Card>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {dashData?.farmsByWilaya && dashData.farmsByWilaya.length > 0 && (
-                    <Card className="border-0 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold">توزيع المستغلات حسب الولاية</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <CategoryPieChart data={dashData.farmsByWilaya} />
-                      </CardContent>
-                    </Card>
-                  )}
-                  {dashData?.inventoryByType && dashData.inventoryByType.length > 0 && (
-                    <Card className="border-0 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold">توزيع المخزونات حسب النوع</CardTitle>
-                      </CardHeader>
-                      <CardContent>
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Globe className="size-4 text-nature-green" />
+                        توزيع المستغلات حسب الولاية
+                        <Badge variant="outline" className="text-[10px] mr-1">{dashData?.farmsByWilaya?.length ?? 0} ولاية</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashData?.farmsByWilaya && dashData.farmsByWilaya.length > 0 ? (
+                        <WilayaDistributionChart data={dashData.farmsByWilaya.map(w => ({ name: w.name, value: w.count }))} />
+                      ) : (
+                        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Package className="size-4 text-nature-golden" />
+                        توزيع المخزونات حسب النوع
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashData?.inventoryByType && dashData.inventoryByType.length > 0 ? (
                         <InventoryTypeChart data={dashData.inventoryByType} />
-                      </CardContent>
-                    </Card>
-                  )}
+                      ) : (
+                        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
               </motion.div>
             )}
