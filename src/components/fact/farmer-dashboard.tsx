@@ -305,20 +305,35 @@ export function FarmerDashboard() {
     }
   }
 
-  const handleExportPDF = async () => {
-    if (!selectedReportData || !selectedReport) return
+  const handleExportPDF = async (reportId?: string) => {
+    const targetReportId = reportId || selectedReport?.id
+    if (!targetReportId) return
     try {
       toast.loading('جاري إنشاء ملف PDF...')
-      const { generateReportPDF } = await import('@/lib/pdf-generator')
-      const doc = generateReportPDF(selectedReport.reportType, selectedReportData)
-      const seasonLabel = selectedReportData.season ? `${selectedReportData.season.type || ''}_${selectedReportData.season.year || ''}` : 'report'
-      doc.save(`FACT_${selectedReport.reportType}_${seasonLabel}.pdf`)
-      toast.dismiss()
-      toast.success('تم تحميل التقرير بنجاح')
+      const res = await fetch('/api/reports/pdf', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: targetReportId }),
+      })
+      const data = await res.json()
+      if (data.success && data.data.pdf) {
+        // Create a download link from base64 data URI
+        const link = document.createElement('a')
+        link.href = data.data.pdf
+        link.download = data.data.filename || `FACT_report.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        toast.dismiss()
+        toast.success('تم تحميل التقرير بنجاح')
+      } else {
+        toast.dismiss()
+        toast.error(data.error || 'حدث خطأ أثناء إنشاء ملف PDF')
+      }
     } catch (err) {
       toast.dismiss()
       console.error('PDF export error:', err)
-      toast.error('حدث خطأ أثناء إنشاء ملف PDF')
+      toast.error('حدث خطأ في الاتصال')
     }
   }
 
@@ -970,21 +985,7 @@ export function FarmerDashboard() {
                               <Button variant="ghost" size="sm" onClick={() => handleViewReport(r)} className="hover:bg-nature-green/10 hover:text-nature-green">
                                 <Eye className="size-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={async () => {
-                                try {
-                                  const parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data
-                                  toast.loading('جاري إنشاء ملف PDF...')
-                                  const { generateReportPDF } = await import('@/lib/pdf-generator')
-                                  const doc = generateReportPDF(r.reportType, parsed)
-                                  const sLabel = parsed.season ? `${parsed.season.type || ''}_${parsed.season.year || ''}` : 'report'
-                                  doc.save(`FACT_${r.reportType}_${sLabel}.pdf`)
-                                  toast.dismiss()
-                                  toast.success('تم تحميل التقرير بنجاح')
-                                } catch (err) {
-                                  toast.dismiss()
-                                  toast.error('حدث خطأ أثناء إنشاء ملف PDF')
-                                }
-                              }} className="hover:bg-nature-golden/10 hover:text-nature-golden">
+                              <Button variant="ghost" size="sm" onClick={() => handleExportPDF(r.id)} className="hover:bg-nature-golden/10 hover:text-nature-golden">
                                 <Download className="size-4" />
                               </Button>
                             </div>
@@ -1002,16 +1003,16 @@ export function FarmerDashboard() {
         </div>
       </main>
 
-      {/* Report Viewer Dialog */}
+      {/* Report Viewer Dialog - Full screen */}
       <Dialog open={reportViewerOpen} onOpenChange={setReportViewerOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden" showCloseButton>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] p-0 overflow-hidden" showCloseButton>
           {selectedReport && selectedReportData && (() => {
             const rData = selectedReportData
             const rType = selectedReport.reportType
             const colors = getReportTypeColor(rType)
 
             return (
-              <div className="flex flex-col max-h-[90vh]">
+              <div className="flex flex-col h-[95vh]">
                 {/* Header with gradient */}
                 <div className={`bg-gradient-to-l ${colors.gradient} p-6 text-white`}>
                   <div className="flex items-center justify-between">
