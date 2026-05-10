@@ -80,21 +80,31 @@ model Transaction {
 }
 
 model Inventory {
-  id         String   @id @default(cuid())
-  farmId     String
-  seasonId   String
-  itemType   String   // input, crop, animal_product
-  itemName   String
-  unit       String
-  qtyIn      Float    @default(0)
-  qtyOut     Float    @default(0)
-  qtyBalance Float    @default(0)
-  unitCost   Float    @default(0)
-  alertThreshold Float @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  season     Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  farmId          String
+  seasonId        String
+  itemType        String    // input, crop, animal_product, equipment (معدات), feed (أعلاف), medication (أدوية بيطرية)
+  subCategory     String?   // detailed classification (e.g., for input: "بذور"/"أسمدة"/"مبيدات"/"أعلاف"/"مستلزمات", for crop: "حبوب"/"خضروات"/"فواكه"/"بقوليات"/"زيوت", for animal_product: "ألبان"/"بيض"/"لحوم"/"صوف")
+  itemName        String
+  unit            String
+  qtyIn           Float     @default(0)
+  qtyOut          Float     @default(0)
+  qtyBalance      Float     @default(0)
+  unitCost        Float     @default(0)   // purchase price per unit
+  alertThreshold  Float     @default(0)
+  supplier        String?   // supplier/source name
+  expiryDate      DateTime? // for inputs that expire
+  storageLocation String?   // where it's stored (e.g., "المخزن الرئيسي", "السقيفة", "الإسطبل")
+  description     String?   // additional notes
+  batchNumber     String?   // batch/lot number for tracking
+  minimumStock    Float     @default(0)   // minimum stock level before reorder
+  reorderQuantity Float     @default(0)   // suggested quantity to reorder
+  unitPrice       Float     @default(0)   // selling price per unit (different from unitCost which is purchase price)
+  lastRestocked   DateTime? // date of last restocking
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  farm            Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  season          Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 }
 
 model Report {

@@ -22,13 +22,22 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
-    // Add status based on alertThreshold and balance
+    // Add status based on alertThreshold and balance, and include minimumStock/reorder logic
     const enriched = items.map(item => {
       const balance = item.qtyIn - item.qtyOut
       let status = 'green'
       if (item.alertThreshold > 0 && balance <= item.alertThreshold) status = 'red'
       else if (item.alertThreshold > 0 && balance <= item.alertThreshold * 1.5) status = 'yellow'
-      return { ...item, qtyBalance: balance, status }
+
+      // Also check minimumStock for reorder status
+      const needsReorder = item.minimumStock > 0 && balance <= item.minimumStock
+
+      return {
+        ...item,
+        qtyBalance: balance,
+        status,
+        needsReorder,
+      }
     })
 
     return NextResponse.json({ success: true, data: enriched })
@@ -46,7 +55,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { farmId, seasonId, itemType, itemName, unit, qtyIn, qtyOut, unitCost, alertThreshold } = body
+    const {
+      farmId, seasonId, itemType, itemName, unit,
+      qtyIn, qtyOut, unitCost, alertThreshold,
+      subCategory, supplier, expiryDate, storageLocation,
+      description, batchNumber, minimumStock, reorderQuantity,
+      unitPrice, lastRestocked,
+    } = body
 
     if (!farmId || !seasonId || !itemType || !itemName || !unit) {
       return NextResponse.json({ success: false, error: 'جميع الحقول المطلوبة يجب ملؤها' }, { status: 400 })
@@ -60,6 +75,7 @@ export async function POST(request: NextRequest) {
         farmId,
         seasonId,
         itemType,
+        subCategory: subCategory || null,
         itemName,
         unit,
         qtyIn: qtyInVal,
@@ -67,6 +83,15 @@ export async function POST(request: NextRequest) {
         qtyBalance: qtyInVal - qtyOutVal,
         unitCost: parseFloat(unitCost) || 0,
         alertThreshold: parseFloat(alertThreshold) || 0,
+        supplier: supplier || null,
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        storageLocation: storageLocation || null,
+        description: description || null,
+        batchNumber: batchNumber || null,
+        minimumStock: parseFloat(minimumStock) || 0,
+        reorderQuantity: parseFloat(reorderQuantity) || 0,
+        unitPrice: parseFloat(unitPrice) || 0,
+        lastRestocked: lastRestocked ? new Date(lastRestocked) : (qtyInVal > 0 ? new Date() : null),
       },
     })
 

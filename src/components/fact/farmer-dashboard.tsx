@@ -232,7 +232,37 @@ export function FarmerDashboard() {
 
   // Inventory dialog
   const [invDialog, setInvDialog] = useState(false)
-  const [invForm, setInvForm] = useState({ itemType: 'input', itemName: '', unit: 'كيلو', qtyIn: '', qtyOut: '0', unitCost: '', alertThreshold: '' })
+  const [invFilter, setInvFilter] = useState('all')
+  const [invSearch, setInvSearch] = useState('')
+  const defaultInvForm = { itemType: 'input', subCategory: '', itemName: '', unit: 'كيلو', qtyIn: '', qtyOut: '0', unitCost: '', unitPrice: '', alertThreshold: '', minimumStock: '', reorderQuantity: '', supplier: '', storageLocation: '', description: '', batchNumber: '', expiryDate: '' }
+  const [invForm, setInvForm] = useState(defaultInvForm)
+
+  const SUB_CATEGORIES: Record<string, string[]> = {
+    input: ['بذور', 'أسمدة', 'مبيدات', 'مستلزمات ري', 'أدوات زراعية'],
+    crop: ['حبوب', 'خضروات', 'فواكه', 'بقوليات', 'زيوت', 'أعلاف'],
+    animal_product: ['ألبان', 'بيض', 'لحوم', 'صوف', 'عسل'],
+    equipment: ['آلات', 'أدوات يدوية', 'شبكات ري'],
+    feed: ['أعلاف مركزة', 'أعلاف خضراء', 'مكملات غذائية'],
+    medication: ['مضادات حيوية', 'لقاحات', 'مطهرات'],
+  }
+
+  const ITEM_TYPE_LABELS: Record<string, string> = {
+    input: 'مدخلات الإنتاج',
+    crop: 'محاصيل',
+    animal_product: 'منتجات حيوانية',
+    equipment: 'معدات',
+    feed: 'أعلاف',
+    medication: 'أدوية بيطرية',
+  }
+
+  const ITEM_TYPE_COLORS: Record<string, string> = {
+    input: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+    crop: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+    animal_product: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+    equipment: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+    feed: 'bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-300',
+    medication: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',
+  }
 
   const handleAddInventory = async () => {
     if (!invForm.itemName) {
@@ -248,12 +278,21 @@ export function FarmerDashboard() {
         farmId: farm.id,
         seasonId: selectedSeason,
         itemType: invForm.itemType,
+        subCategory: invForm.subCategory || null,
         itemName: invForm.itemName,
         unit: invForm.unit || 'كيلو',
         qtyIn: parseFloat(invForm.qtyIn) || 0,
         qtyOut: parseFloat(invForm.qtyOut) || 0,
         unitCost: parseFloat(invForm.unitCost) || 0,
+        unitPrice: parseFloat(invForm.unitPrice) || 0,
         alertThreshold: parseFloat(invForm.alertThreshold) || 0,
+        minimumStock: parseFloat(invForm.minimumStock) || 0,
+        reorderQuantity: parseFloat(invForm.reorderQuantity) || 0,
+        supplier: invForm.supplier || null,
+        storageLocation: invForm.storageLocation || null,
+        description: invForm.description || null,
+        batchNumber: invForm.batchNumber || null,
+        expiryDate: invForm.expiryDate || null,
       }
       const res = await fetch('/api/inventory', {
         method: 'POST',
@@ -264,7 +303,7 @@ export function FarmerDashboard() {
       if (data.success) {
         toast.success('تم إضافة المخزون بنجاح')
         setInvDialog(false)
-        setInvForm({ itemType: 'input', itemName: '', unit: 'كيلو', qtyIn: '', qtyOut: '0', unitCost: '', alertThreshold: '' })
+        setInvForm(defaultInvForm)
         // Refresh inventory directly
         const invRes = await fetch(`/api/inventory?farmId=${farm.id}&seasonId=${selectedSeason}`, { headers })
         const invData = await invRes.json()
@@ -949,52 +988,170 @@ export function FarmerDashboard() {
                         إضافة مخزون
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle>إضافة مخزون</DialogTitle>
+                        <DialogTitle>إضافة مخزون جديد</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>نوع المخزون</Label>
-                          <Select value={invForm.itemType} onValueChange={v => setInvForm({ ...invForm, itemType: v })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="input">مدخلات الإنتاج</SelectItem>
-                              <SelectItem value="crop">محاصيل</SelectItem>
-                              <SelectItem value="animal_product">منتجات حيوانية</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>اسم الصنف</Label>
-                          <Input value={invForm.itemName} onChange={e => setInvForm({ ...invForm, itemName: e.target.value })} placeholder="بذور القمح" />
-                        </div>
+                        {/* Type + SubCategory */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
-                            <Label>الوحدة</Label>
-                            <Input value={invForm.unit} onChange={e => setInvForm({ ...invForm, unit: e.target.value })} placeholder="كيلو" />
+                            <Label>نوع المخزون</Label>
+                            <Select value={invForm.itemType} onValueChange={v => setInvForm({ ...invForm, itemType: v, subCategory: '' })}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(ITEM_TYPE_LABELS).map(([k, v]) => (
+                                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
+                          <div className="space-y-2">
+                            <Label>التصنيف الفرعي</Label>
+                            <Select value={invForm.subCategory} onValueChange={v => setInvForm({ ...invForm, subCategory: v })}>
+                              <SelectTrigger><SelectValue placeholder="اختر التصنيف" /></SelectTrigger>
+                              <SelectContent>
+                                {(SUB_CATEGORIES[invForm.itemType] || []).map(sc => (
+                                  <SelectItem key={sc} value={sc}>{sc}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Item Name + Unit */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>اسم الصنف</Label>
+                            <Input value={invForm.itemName} onChange={e => setInvForm({ ...invForm, itemName: e.target.value })} placeholder="بذور القمح" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>الوحدة</Label>
+                            <Select value={invForm.unit} onValueChange={v => setInvForm({ ...invForm, unit: v })}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {['كيلو', 'قنطار', 'طن', 'لتر', 'كيس', 'وحدة', 'غرام', 'علبة', 'زجاجة'].map(u => (
+                                  <SelectItem key={u} value={u}>{u}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* QtyIn + QtyOut */}
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
                             <Label>الكمية الداخلة</Label>
                             <Input type="number" value={invForm.qtyIn} onChange={e => setInvForm({ ...invForm, qtyIn: e.target.value })} placeholder="0" dir="ltr" />
                           </div>
+                          <div className="space-y-2">
+                            <Label>الكمية الخارجة</Label>
+                            <Input type="number" value={invForm.qtyOut} onChange={e => setInvForm({ ...invForm, qtyOut: e.target.value })} placeholder="0" dir="ltr" />
+                          </div>
                         </div>
+
+                        {/* UnitCost + UnitPrice */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
                             <Label>تكلفة الوحدة (دج)</Label>
-                            <Input type="number" value={invForm.unitCost} onChange={e => setInvForm({ ...invForm, unitCost: e.target.value })} placeholder="0" dir="ltr" />
+                            <Input type="number" value={invForm.unitCost} onChange={e => setInvForm({ ...invForm, unitCost: e.target.value })} placeholder="سعر الشراء" dir="ltr" />
                           </div>
+                          <div className="space-y-2">
+                            <Label>سعر البيع (دج)</Label>
+                            <Input type="number" value={invForm.unitPrice} onChange={e => setInvForm({ ...invForm, unitPrice: e.target.value })} placeholder="سعر البيع" dir="ltr" />
+                          </div>
+                        </div>
+
+                        {/* AlertThreshold + MinimumStock */}
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
                             <Label>حد التنبيه</Label>
                             <Input type="number" value={invForm.alertThreshold} onChange={e => setInvForm({ ...invForm, alertThreshold: e.target.value })} placeholder="0" dir="ltr" />
                           </div>
+                          <div className="space-y-2">
+                            <Label>الحد الأدنى لإعادة الطلب</Label>
+                            <Input type="number" value={invForm.minimumStock} onChange={e => setInvForm({ ...invForm, minimumStock: e.target.value })} placeholder="0" dir="ltr" />
+                          </div>
                         </div>
+
+                        {/* ReorderQuantity + BatchNumber */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>كمية إعادة الطلب</Label>
+                            <Input type="number" value={invForm.reorderQuantity} onChange={e => setInvForm({ ...invForm, reorderQuantity: e.target.value })} placeholder="0" dir="ltr" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>رقم الدفعة</Label>
+                            <Input value={invForm.batchNumber} onChange={e => setInvForm({ ...invForm, batchNumber: e.target.value })} placeholder="LOT-2025-0001" dir="ltr" />
+                          </div>
+                        </div>
+
+                        {/* Supplier + StorageLocation */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>المورّد</Label>
+                            <Input value={invForm.supplier} onChange={e => setInvForm({ ...invForm, supplier: e.target.value })} placeholder="اسم المورّد" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>مكان التخزين</Label>
+                            <Select value={invForm.storageLocation} onValueChange={v => setInvForm({ ...invForm, storageLocation: v })}>
+                              <SelectTrigger><SelectValue placeholder="اختر المكان" /></SelectTrigger>
+                              <SelectContent>
+                                {['المخزن الرئيسي', 'سقيفة A', 'سقيفة B', 'الإسطبل', 'مستودع الحبوب', 'المعصرة', 'المبرد', 'الساحة'].map(loc => (
+                                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* ExpiryDate + Description */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>تاريخ الانتهاء</Label>
+                            <Input type="date" value={invForm.expiryDate} onChange={e => setInvForm({ ...invForm, expiryDate: e.target.value })} dir="ltr" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>ملاحظات</Label>
+                            <Input value={invForm.description} onChange={e => setInvForm({ ...invForm, description: e.target.value })} placeholder="وصف إضافي" />
+                          </div>
+                        </div>
+
                         <Button onClick={handleAddInventory} className="w-full h-12 green-gradient text-white font-bold">
                           إضافة المخزون
                         </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
+                </div>
+
+                {/* Inventory Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+                  {Object.entries(ITEM_TYPE_LABELS).map(([type, label]) => {
+                    const count = inventory.filter((i: any) => i.itemType === type).length
+                    const totalValue = inventory.filter((i: any) => i.itemType === type).reduce((sum: number, i: any) => sum + ((i.qtyIn - i.qtyOut) * (i.unitCost || 0)), 0)
+                    return (
+                      <motion.div key={type} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => setInvFilter(invFilter === type ? 'all' : type)}>
+                        <Card className={`border-0 shadow-md transition-all ${invFilter === type ? 'ring-2 ring-nature-green' : ''} ${count > 0 ? 'hover:shadow-lg' : 'opacity-50'}`}>
+                          <CardContent className="p-3 text-center">
+                            <Badge className={`mb-2 text-[10px] ${ITEM_TYPE_COLORS[type]}`}>{label}</Badge>
+                            <p className="text-lg font-black">{count}</p>
+                            <p className="text-[10px] text-muted-foreground">{formatCurrency(totalValue)}</p>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+
+                {/* Search + Filter */}
+                <div className="flex gap-3 mb-4">
+                  <div className="flex-1">
+                    <Input placeholder="بحث في المخزون..." value={invSearch} onChange={e => setInvSearch(e.target.value)} className="h-9" />
+                  </div>
+                  <Button variant={invFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setInvFilter('all')} className="text-xs h-9">
+                    الكل ({inventory.length})
+                  </Button>
                 </div>
 
                 {/* Inventory chart */}
@@ -1017,40 +1174,65 @@ export function FarmerDashboard() {
                 {/* Inventory list */}
                 <Card className="border-0 shadow-lg">
                   <CardContent className="p-0">
-                    {inventory.length > 0 ? (
-                      <div className="divide-y divide-border">
-                        {inventory.map((item: any) => {
-                          const balance = item.qtyIn - item.qtyOut
-                          const statusColor = item.status === 'red' ? 'bg-red-500' : item.status === 'yellow' ? 'bg-amber-500' : 'bg-green-500'
-                          return (
-                            <div key={item.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className={`w-2 h-10 rounded-full ${statusColor}`} />
-                                <div>
-                                  <p className="text-sm font-bold">{item.itemName}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {item.itemType === 'input' ? 'مدخل إنتاج' : item.itemType === 'crop' ? 'محصول' : 'منتج حيواني'}
-                                  </p>
+                    {(() => {
+                      const filtered = inventory
+                        .filter((i: any) => invFilter === 'all' || i.itemType === invFilter)
+                        .filter((i: any) => !invSearch || i.itemName.includes(invSearch) || (i.subCategory || '').includes(invSearch) || (i.supplier || '').includes(invSearch))
+                      return filtered.length > 0 ? (
+                        <div className="divide-y divide-border">
+                          {filtered.map((item: any) => {
+                            const balance = item.qtyIn - item.qtyOut
+                            const totalVal = balance * (item.unitCost || 0)
+                            const statusColor = item.status === 'red' ? 'bg-red-500' : item.status === 'yellow' ? 'bg-amber-500' : 'bg-green-500'
+                            const needsReorder = item.minimumStock > 0 && balance <= item.minimumStock
+                            return (
+                              <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-start gap-3">
+                                    <div className={`w-2 h-12 rounded-full mt-1 ${statusColor} shrink-0`} />
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-bold">{item.itemName}</p>
+                                        <Badge className={`text-[9px] px-1.5 py-0 ${ITEM_TYPE_COLORS[item.itemType] || 'bg-muted text-muted-foreground'}`}>
+                                          {ITEM_TYPE_LABELS[item.itemType] || item.itemType}
+                                        </Badge>
+                                        {item.subCategory && (
+                                          <Badge variant="outline" className="text-[9px] px-1.5 py-0">{item.subCategory}</Badge>
+                                        )}
+                                        {needsReorder && (
+                                          <Badge className="text-[9px] px-1.5 py-0 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                                            يحتاج إعادة طلب
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        داخل: {item.qtyIn} | خارج: {item.qtyOut} | الرصيد: <span className={balance <= (item.alertThreshold || 0) ? 'text-red-600 dark:text-red-400 font-bold' : 'font-bold'}>{balance}</span> {item.unit}
+                                      </p>
+                                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+                                        {item.supplier && <span>المورّد: {item.supplier}</span>}
+                                        {item.storageLocation && <span>المكان: {item.storageLocation}</span>}
+                                        {item.batchNumber && <span>الدفعة: {item.batchNumber}</span>}
+                                        {item.expiryDate && <span className={new Date(item.expiryDate) < new Date() ? 'text-red-600 dark:text-red-400 font-bold' : ''}>الانتهاء: {new Date(item.expiryDate).toLocaleDateString('fr-FR')}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-left shrink-0 space-y-1">
+                                    <p className="text-sm font-bold">{formatCurrency(totalVal)}</p>
+                                    {item.unitCost > 0 && <p className="text-[10px] text-muted-foreground">شراء: {new Intl.NumberFormat('en-US').format(item.unitCost)} دج/{item.unit}</p>}
+                                    {item.unitPrice > 0 && <p className="text-[10px] text-nature-green">بيع: {new Intl.NumberFormat('en-US').format(item.unitPrice)} دج/{item.unit}</p>}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="text-left">
-                                <p className="text-sm font-bold">
-                                  الرصيد: <span className={balance <= item.alertThreshold ? 'text-red-600 dark:text-red-400' : ''}>{balance}</span> {item.unit}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  داخل: {item.qtyIn} | خارج: {item.qtyOut}
-                                </p>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-16">
-                        <Package className="size-12 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-muted-foreground">لا يوجد مخزون بعد</p>
-                      </div>
-                    )}
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-16">
+                          <Package className="size-12 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-muted-foreground">{invSearch || invFilter !== 'all' ? 'لا توجد نتائج' : 'لا يوجد مخزون بعد'}</p>
+                        </div>
+                      )
+                    })()}
                   </CardContent>
                 </Card>
               </motion.div>
