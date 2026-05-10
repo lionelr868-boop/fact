@@ -575,14 +575,17 @@ export async function POST(request: NextRequest) {
       addFooter(i)
     }
 
-    // Get PDF as base64
-    const pdfBase64 = doc.output('datauristring')
+    // Get PDF as binary buffer
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
+    const filename = `FACT_${report.reportType}_${seasonLabel.replace(/\s+/g, '_')}.pdf`
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        pdf: pdfBase64,
-        filename: `FACT_${report.reportType}_${seasonLabel.replace(/\s+/g, '_')}.pdf`,
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+        'Content-Length': pdfBuffer.length.toString(),
+        'X-Filename': encodeURIComponent(filename),
       },
     })
   } catch (error) {
