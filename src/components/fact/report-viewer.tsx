@@ -12,9 +12,8 @@ import {
   Calendar, DollarSign, Percent, BookOpen, Stamp, Download,
   Sprout, Carrot, Milk, Landmark, FlaskConical, Droplets, Users, Truck, Wrench, Plus, Leaf, Package,
   Info, Lightbulb, ArrowLeft, ClipboardCheck, Gauge, FileText, Clock, Target, Loader2
-} from 'lucide-react'
 import { useState } from 'react'
-import html2canvas from 'html2canvas'
+import { toJpeg } from 'html-to-image'
 import { jsPDF } from 'jspdf'
 import { toast } from 'sonner'
 
@@ -98,33 +97,40 @@ export function ReportViewer({ open, onOpenChange, report, reportData }: ReportV
       clone.style.backgroundColor = 'white'
       clone.style.padding = '40px'
 
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        windowWidth: 1200,
+      // Use html-to-image which supports all modern CSS (including Tailwind v4 oklab colors)
+      const dataUrl = await toJpeg(clone, {
+        quality: 1.0,
+        width: 1200,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2
       })
       
       document.body.removeChild(clone)
       
-      const imgData = canvas.toDataURL('image/jpeg', 1.0)
       const pdf = new jsPDF('p', 'mm', 'a4')
       
       const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      
+      // We need to calculate height based on the image aspect ratio
+      // First create an image element to get its dimensions
+      const img = new Image()
+      img.src = dataUrl
+      await new Promise((resolve) => { img.onload = resolve })
+      
+      const pdfHeight = (img.height * pdfWidth) / img.width
       
       let heightLeft = pdfHeight
       let position = 0
 
       // Add first page
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight)
+      pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight)
       heightLeft -= pdf.internal.pageSize.getHeight()
 
       // Add subsequent pages if needed
       while (heightLeft > 0) {
         position = heightLeft - pdfHeight
         pdf.addPage()
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight)
+        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight)
         heightLeft -= pdf.internal.pageSize.getHeight()
       }
 
