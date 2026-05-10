@@ -402,4 +402,43 @@ export function InventoryTypeChart({ data }: InventoryTypeChartProps) {
   )
 }
 
+// ==================== WILAYA DISTRIBUTION BAR CHART ====================
+
+interface WilayaDistributionChartProps {
+  data: { name: string; value: number }[]
+}
+
+const wilayaConfig: ChartConfig = {
+  value: { label: 'عدد المستغلات', color: COLORS.green },
+}
+
+const wilayaColors = [COLORS.green, COLORS.golden, COLORS.purple, COLORS.blue, COLORS.teal, COLORS.amber, COLORS.olive, COLORS.violet, COLORS.cyan, COLORS.lime, COLORS.orange, COLORS.rose]
+
+export function WilayaDistributionChart({ data }: WilayaDistributionChartProps) {
+  const chartData = data.map((d, i) => ({
+    name: d.name,
+    value: d.value,
+    fill: wilayaColors[i % wilayaColors.length],
+  }))
+
+  return (
+    <ChartContainer config={wilayaConfig} className="min-h-[280px] w-full">
+      <BarChart data={chartData} layout="vertical">
+        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb20" />
+        <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+        <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={70} />
+        <Tooltip
+          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+          formatter={(value: number) => [value + ' مستغلة', 'عدد المستغلات']}
+        />
+        <Bar dataKey="value" name="عدد المستغلات" radius={[0, 6, 6, 0]} barSize={24}>
+          {chartData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  )
+}
+
 export { COLORS }

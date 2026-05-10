@@ -24,7 +24,7 @@ import {
   Phone, Leaf, Droplets, Wrench, Pill, Plus, Edit2,
   DollarSign, BoxIcon, RefreshCw, Loader2,
 } from 'lucide-react'
-import { SeasonalBarChart, CategoryPieChart, CashFlowChart, InventoryTypeChart } from './charts'
+import { SeasonalBarChart, CategoryPieChart, CashFlowChart, InventoryTypeChart, WilayaDistributionChart } from './charts'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
@@ -580,7 +580,7 @@ export function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       {dashData?.farmsByWilaya && dashData.farmsByWilaya.length > 0 ? (
-                        <CategoryPieChart data={dashData.farmsByWilaya} />
+                        <WilayaDistributionChart data={dashData.farmsByWilaya.map(w => ({ name: w.name, value: w.count }))} />
                       ) : (
                         <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">لا توجد بيانات بعد</div>
                       )}
