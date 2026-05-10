@@ -14,7 +14,7 @@ import {
   Info, Lightbulb, ArrowLeft, ClipboardCheck, Gauge, FileText, Clock, Target, Loader2
 } from 'lucide-react'
 import { useState } from 'react'
-import { toJpeg } from 'html-to-image'
+import { toPng } from 'html-to-image'
 import { jsPDF } from 'jspdf'
 import { toast } from 'sonner'
 
@@ -86,34 +86,25 @@ export function ReportViewer({ open, onOpenChange, report, reportData }: ReportV
 
       toast.loading('جاري تجهيز ملف PDF...', { id: 'pdf-toast' })
 
-      // Create a clone to ensure full height is captured, bypassing ScrollArea restrictions
-      const clone = element.cloneNode(true) as HTMLElement
-      document.body.appendChild(clone)
-      clone.style.position = 'absolute'
-      clone.style.top = '-9999px'
-      clone.style.left = '-9999px'
-      clone.style.width = '1200px'
-      clone.style.height = 'auto'
-      clone.style.overflow = 'visible'
-      clone.style.backgroundColor = 'white'
-      clone.style.padding = '40px'
+      // Wait a moment for any pending renders
+      await new Promise(r => setTimeout(r, 100))
 
-      // Use html-to-image which supports all modern CSS (including Tailwind v4 oklab colors)
-      const dataUrl = await toJpeg(clone, {
+      // Use html-to-image directly on the rendered element
+      const dataUrl = await toPng(element, {
         quality: 1.0,
-        width: 1200,
         backgroundColor: '#ffffff',
-        pixelRatio: 2
+        pixelRatio: 2,
+        style: {
+          // Force text color to black and background to white in case of dark mode
+          color: '#000000',
+        }
       })
-      
-      document.body.removeChild(clone)
       
       const pdf = new jsPDF('p', 'mm', 'a4')
       
       const pdfWidth = pdf.internal.pageSize.getWidth()
       
       // We need to calculate height based on the image aspect ratio
-      // First create an image element to get its dimensions
       const img = new Image()
       img.src = dataUrl
       await new Promise((resolve) => { img.onload = resolve })
@@ -124,14 +115,14 @@ export function ReportViewer({ open, onOpenChange, report, reportData }: ReportV
       let position = 0
 
       // Add first page
-      pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight)
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight)
       heightLeft -= pdf.internal.pageSize.getHeight()
 
       // Add subsequent pages if needed
       while (heightLeft > 0) {
         position = heightLeft - pdfHeight
         pdf.addPage()
-        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight)
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight)
         heightLeft -= pdf.internal.pageSize.getHeight()
       }
 
